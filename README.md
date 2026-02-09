@@ -124,6 +124,32 @@ reef history both          # log both
 
 ---
 
+## reef-tools — Modern CLI Wrappers
+
+`reef-tools` is a separate package that replaces legacy coreutils with faster, modern alternatives. You type the same commands you already know — the wrappers translate your flags automatically.
+
+| You type | Runs | Why |
+|---|---|---|
+| `grep` | [ripgrep](https://github.com/BurntSushi/ripgrep) | 5-10x faster. Respects `.gitignore`. Recursive by default. Unicode-aware. |
+| `find` | [fd](https://github.com/sharkdp/fd) | Simpler syntax, 5x faster, ignores `.git`/`node_modules` by default. Colorized output. |
+| `sed` | [sd](https://github.com/chmln/sd) | Sane regex syntax (no escaping groups). 2-10x faster on large files. |
+| `ls` | [eza](https://github.com/eza-community/eza) | Git-aware. Colors and icons. Tree view with `-R`. Human sizes by default. |
+| `du` | [dust](https://github.com/bootandy/dust) | Visual bar chart of disk usage. Instant overview instead of a wall of numbers. |
+| `ps` | [procs](https://github.com/dalance/procs) | Colorized. Searchable. Shows ports, Docker containers, tree view. |
+
+Every wrapper has a fallback guard — if the modern tool isn't installed, the original command runs unchanged. Nothing breaks.
+
+```
+❯ grep -r "TODO" src/            # runs ripgrep with translated flags
+❯ find . -name "*.rs" -type f    # runs fd with translated flags
+❯ sed -i 's/foo/bar/g' file.txt  # runs sd with translated args
+❯ ls -ltr                        # runs eza with translated flags
+❯ du -sh /var                    # runs dust with translated flags
+❯ ps aux                         # runs procs
+```
+
+---
+
 ## .bashrc Compatibility
 
 Tools like nvm, conda, pyenv, and rustup write initialization lines to `~/.bashrc`. Reef auto-sources this on shell startup:
