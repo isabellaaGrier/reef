@@ -8,7 +8,7 @@ url="https://github.com/ZStud/reef"
 license=('MIT')
 makedepends=('cargo')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/ZStud/reef/archive/v$pkgver.tar.gz")
-sha256sums=('06f9832fc092d007b2590de4c385cdb693b463a1b23131ed5547a3a143882427')
+sha256sums=('58068c9a6a7031a188841605ff2e3c36cccd6fcca4cad1e943388c63a6d84874')
 
 prepare() {
     cd "$pkgbase-$pkgver"
