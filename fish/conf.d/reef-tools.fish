@@ -25,4 +25,11 @@ end
 # zoxide: smart cd with frecency-based directory jumping
 if command -q zoxide
     zoxide init fish --cmd cd | source
+    # Also provide z/zi for muscle memory
+    function z --wraps=cd --description "zoxide: jump to directory"
+        cd $argv
+    end
+    function zi --wraps=cdi --description "zoxide: interactive jump"
+        cdi $argv
+    end
 end
