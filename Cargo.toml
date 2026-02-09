@@ -1,0 +1,15 @@
+[package]
+name = "reef"
+version = "0.1.0"
+edition = "2021"
+description = "Bash compatibility layer for fish shell"
+license = "MIT"
+
+[dependencies]
+conch-parser = "0.1"
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

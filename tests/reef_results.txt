@@ -1,0 +1,603 @@
+reef Test Suite Results
+=======================
+Date: Mon Feb  9 01:36:40 PM MST 2026
+reef: unknown
+fish: fish, version 4.4.0
+bash: GNU bash, version 5.3.9(1)-release (x86_64-pc-linux-gnu)
+
+
+── Variable Assignment & Export
+PASS #1.1 [simple export] → T1:translate
+
+PASS #1.2 [export with spaces] → T1:translate
+
+T2   #1.3 [export PATH append] → bash-exec (detect:yes)
+
+PASS #1.4 [multiple exports] → T1:translate
+
+PASS #1.5 [export without value] → T1:translate
+
+PASS #1.6 [unset] → T1:translate
+
+PASS #1.7 [declare -x] → T1:translate
+
+PASS #1.8 [local in function] → T1:translate
+
+PASS #1.9 [inline var before command] → T1:translate
+
+PASS #1.10 [assignment with cmd subst] → T1:translate
+
+PASS #1.11 [assignment with backticks] → T1:translate
+
+PASS #1.12 [multi inline assignments] → T1:translate
+
+
+── Command Substitution
+PASS #2.1 [basic $()] → T1:translate
+
+PASS #2.2 [nested $()] → T1:translate
+
+PASS #2.3 [$() in assignment] → T1:translate
+
+PASS #2.4 [backtick substitution] → T1:translate
+
+PASS #2.5 [$() with pipes] → T1:translate
+
+PASS #2.6 [deeply nested (3 levels)] → T1:translate
+
+PASS #2.7 [deeply nested (4 levels)] → T1:translate
+
+PASS #2.8 [cmd subst in argument] → T1:translate
+
+PASS #2.9 [cmd subst in double quotes] → T1:translate
+
+PASS #2.10 [multiple cmd substs] → T1:translate
+
+
+── Conditionals
+PASS #3.1 [if [ -f ] then fi] → T1:translate
+
+PASS #3.2 [if/else] → T1:translate
+
+PASS #3.3 [if/elif/else] → T1:translate
+
+PASS #3.4 [[[ -n ]] test] → T1:translate
+
+PASS #3.5 [[[ == pattern ]]] → T1:translate
+
+PASS #3.6 [[[ && ]] combined] → T1:translate
+
+PASS #3.7 [[[ || ]] combined] → T1:translate
+
+PASS #3.8 [[[ =~ regex ]]] → T1:translate
+
+PASS #3.9 [test command] → T1:translate
+
+PASS #3.10 [ternary-style && ||] → T1:translate
+
+PASS #3.11 [negated test] → T1:translate
+
+PASS #3.12 [[[ ! -f ]]] → T1:translate
+
+PASS #3.13 [[[ -z ]] empty] → T1:translate
+
+PASS #3.14 [[[ -n ]] nonempty] → T1:translate
+
+PASS #3.15 [[[ numeric -gt ]]] → T1:translate
+
+PASS #3.16 [[[ string == string ]]] → T1:translate
+
+PASS #3.17 [[[ string != string ]]] → T1:translate
+
+PASS #3.18 [[[ =~ ]] has number] → T1:translate
+
+PASS #3.19 [command -v check] → T1:translate
+
+PASS #3.20 [nested if] → T1:translate
+
+
+── Loops
+PASS #4.1 [for with $(seq)] → T1:translate
+
+PASS #4.2 [for with word list] → T1:translate
+
+T2   #4.3 [for with glob] → bash-exec (detect:yes)
+
+PASS #4.4 [for with brace range] → T1:translate
+
+PASS #4.5 [for with brace step] → T1:translate
+
+PASS #4.6 [while read] → T1:translate
+
+PASS #4.7 [while with condition] → T1:translate
+
+PASS #4.8 [until loop] → T1:translate
+
+PASS #4.9 [nested for loops] → T1:translate
+
+PASS #4.10 [for with quoted items] → T1:translate
+
+PASS #4.11 [for with cmd subst words] → T1:translate
+
+T2   #4.12 [c-style for loop] → bash-exec (detect:yes)
+
+T2   #4.13 [c-style for with step] → bash-exec (detect:yes)
+
+T2   #4.14 [c-style for countdown] → bash-exec (detect:yes)
+
+PASS #4.15 [while read -r from pipe] → T1:translate
+
+
+── Arithmetic
+PASS #5.1 [basic addition] → T1:translate
+
+PASS #5.2 [multiply] → T1:translate
+
+PASS #5.3 [grouped] → T1:translate
+
+PASS #5.4 [modulo] → T1:translate
+
+PASS #5.5 [with variables] → T1:translate
+
+PASS #5.6 [comparison > (1/0)] → T1:translate
+
+PASS #5.7 [comparison < (1/0)] → T1:translate
+
+PASS #5.8 [comparison == (1/0)] → T1:translate
+
+PASS #5.9 [ternary] → T1:translate
+
+PASS #5.10 [nested ternary] → T1:translate
+
+T2   #5.11 [bitwise AND] → bash-exec (detect:yes)
+
+T2   #5.12 [bitwise OR] → bash-exec (detect:yes)
+
+T2   #5.13 [bitwise XOR] → bash-exec (detect:yes)
+
+T2   #5.14 [left shift] → bash-exec (detect:yes)
+
+T2   #5.15 [right shift] → bash-exec (detect:yes)
+
+PASS #5.16 [negation] → T1:translate
+
+PASS #5.17 [arith in condition] → T1:translate
+
+T2   #5.18 [(( )) as test] → bash-exec (detect:yes)
+
+T2   #5.19 [(( )) increment] → bash-exec (detect:no)
+
+T2   #5.20 [let command] → bash-exec (detect:no)
+
+
+── Parameter Expansion
+PASS #6.1 [${var:-default}] → T1:translate
+
+PASS #6.2 [${var:=default}] → T1:translate
+
+PASS #6.3 [${var:+alternate}] → T1:translate
+
+PASS #6.4 [${#var} length] → T1:translate
+
+PASS #6.5 [${var%.*} suffix] → T1:translate
+
+PASS #6.6 [${var%%.*} longest suffix] → T1:translate
+
+PASS #6.7 [${var#*/} prefix] → T1:translate
+
+PASS #6.8 [${var##*/} longest prefix] → T1:translate
+
+T2   #6.9 [${var/old/new} replace] → bash-exec (detect:yes)
+
+T2   #6.10 [${var//old/new} global repl] → bash-exec (detect:yes)
+
+PASS #6.11 [${var} simple braces] → T1:translate
+
+T2   #6.12 [${var:0:5} substring] → bash-exec (detect:yes)
+
+T2   #6.13 [${var:6} offset] → bash-exec (detect:yes)
+
+T2   #6.14 [${var^^} uppercase] → bash-exec (detect:yes)
+
+T2   #6.15 [${var,,} lowercase] → bash-exec (detect:yes)
+
+T2   #6.16 [${var^} capitalize] → bash-exec (detect:yes)
+
+T2   #6.17 [${!var} indirect] → bash-exec (detect:yes)
+
+
+── Here Strings
+PASS #7.1 [basic here string] → T1:translate
+
+PASS #7.2 [here string with variable] → T1:translate
+
+PASS #7.3 [here string to read] → T1:translate
+
+PASS #7.4 [here string grep] → T1:translate
+
+PASS #7.5 [here string single quoted] → T1:translate
+
+
+── Heredocs
+T2   #8.1 [basic heredoc] → bash-exec (detect:no)
+
+T2   #8.2 [heredoc with expansion] → bash-exec (detect:no)
+
+T2   #8.3 [heredoc no expansion] → bash-exec (detect:yes)
+
+T2   #8.4 [heredoc piped] → bash-exec (detect:no)
+
+
+── Process Substitution
+T2   #9.1 [diff <()] → bash-exec (detect:yes)
+
+T2   #9.2 [paste <(seq)] → bash-exec (detect:yes)
+
+T2   #9.3 [while read < <()] → bash-exec (detect:yes)
+
+T2   #9.4 [cat <(echo)] → bash-exec (detect:yes)
+
+
+── Arrays (Indexed)
+T2   #10.1 [array access] → bash-exec (detect:yes)
+
+T2   #10.2 [array all elements] → bash-exec (detect:yes)
+
+T2   #10.3 [array length] → bash-exec (detect:yes)
+
+T2   #10.4 [array append] → bash-exec (detect:yes)
+
+T2   #10.5 [array slice] → bash-exec (detect:yes)
+
+T2   #10.6 [array in for loop] → bash-exec (detect:yes)
+
+T2   #10.7 [array element delete] → bash-exec (detect:yes)
+
+T2   #10.8 [array with spaces] → bash-exec (detect:yes)
+
+
+── Associative Arrays
+T2   #11.1 [declare -A and use] → bash-exec (detect:yes)
+
+T2   #11.2 [compound assignment] → bash-exec (detect:yes)
+
+T2   #11.3 [all keys] → bash-exec (detect:yes)
+
+T2   #11.4 [iterate assoc array] → bash-exec (detect:yes)
+
+
+── Case Statements
+PASS #12.1 [simple case] → T1:translate
+
+PASS #12.2 [case with wildcard] → T1:translate
+
+PASS #12.3 [case multi-pattern] → T1:translate
+
+PASS #12.4 [case bracket pattern] → T1:translate
+
+T2   #12.5 [case ;& fallthrough] → bash-exec (detect:yes)
+
+PASS #12.6 [nested case in if] → T1:translate
+
+
+── Functions
+PASS #13.1 [function keyword] → T1:translate
+
+PASS #13.2 [parens syntax] → T1:translate
+
+PASS #13.3 [function with local] → T1:translate
+
+T2   #13.4 [function with return] → bash-exec (detect:yes)
+
+T2   #13.5 [recursive function] → bash-exec (detect:yes)
+
+
+── Redirections
+FAIL #14.1 [stderr to stdout] → T1:translate
+  cmd:  ls /nonexistent_reef_path 2>&1 | head -1
+  xlat: ls /nonexistent_reef_path 2>&1 | head -1
+  bash: ls: cannot access '/nonexistent_reef_path': No such file or directory
+  fish: "/nonexistent_reef_path": No such file or directory (os error 2)
+
+PASS #14.2 [discard stderr] → T1:translate
+
+PASS #14.3 [discard both &>] → T1:translate
+
+PASS #14.4 [append >>] → T1:translate
+
+PASS #14.5 [redirect stderr only] → T1:translate
+
+
+── Subshells & Grouping
+T2   #15.1 [subshell basic] → bash-exec (detect:no)
+
+T2   #15.2 [subshell isolation] → bash-exec (detect:no)
+
+T2   #15.3 [subshell cd] → bash-exec (detect:yes)
+
+PASS #15.4 [brace group piped] → T1:translate
+
+T2   #15.5 [exit from subshell] → bash-exec (detect:no)
+
+PASS #15.6 [background and wait] → T1:translate
+
+
+── Brace Expansion
+PASS #16.1 [brace list] → T1:translate
+
+PASS #16.2 [brace with prefix] → T1:translate
+
+PASS #16.3 [numeric range] → T1:translate
+
+PASS #16.4 [range with step] → T1:translate
+
+PASS #16.5 [alpha range] → T1:translate
+
+PASS #16.6 [reverse range] → T1:translate
+
+T2   #16.7 [nested braces] → bash-exec (detect:no)
+
+PASS #16.8 [brace expansion in echo] → T1:translate
+
+
+── Pipelines & Chains
+PASS #17.1 [simple pipeline] → T1:translate
+
+PASS #17.2 [3-stage pipeline] → T1:translate
+
+PASS #17.3 [AND chain] → T1:translate
+
+PASS #17.4 [OR chain] → T1:translate
+
+PASS #17.5 [mixed AND/OR (true)] → T1:translate
+
+PASS #17.6 [mixed AND/OR (false)] → T1:translate
+
+PASS #17.7 [semicolon chain] → T1:translate
+
+PASS #17.8 [pipe to while] → T1:translate
+
+PASS #17.9 [pipeline wc] → T1:translate
+
+PASS #17.10 [pipeline tr] → T1:translate
+
+PASS #17.11 [pipeline cut] → T1:translate
+
+
+── Special Variables
+PASS #18.1 [$? success] → T1:translate
+
+PASS #18.2 [$? failure] → T1:translate
+
+PASS #18.3 [colon noop] → T1:translate
+
+PASS #18.4 [colon as true] → T1:translate
+
+
+── Quoting Edge Cases
+PASS #19.1 [single in double] → T1:translate
+
+PASS #19.2 [double in single] → T1:translate
+
+PASS #19.3 [escaped double quotes] → T1:translate
+
+PASS #19.4 [dollar in single (literal)] → T1:translate
+
+PASS #19.5 [backslash in double] → T1:translate
+
+PASS #19.6 [empty string args] → T1:translate
+
+PASS #19.7 [adjacent quoting] → T1:translate
+
+
+── Traps & Signals
+T2~  #20.1 [trap EXIT] → bash-exec (detect:no, output differs)
+  cmd:  trap "echo cleanup" EXIT; echo "running"
+  bash: running
+cleanup
+  bexe: running
+
+T2   #20.2 [trap ERR] → bash-exec (detect:no)
+
+T2   #20.3 [trap cleanup file] → bash-exec (detect:yes)
+
+
+── Namerefs & Advanced
+T2   #21.1 [nameref basic] → bash-exec (detect:yes)
+
+T2   #21.2 [nameref assignment] → bash-exec (detect:yes)
+
+T2   #21.3 [nameref in function] → bash-exec (detect:yes)
+
+PASS #21.4 [eval simple] → T1:translate
+
+PASS #21.5 [eval indirect] → T1:translate
+
+
+── mapfile & readarray
+T2   #22.1 [mapfile from cmd] → bash-exec (detect:yes)
+
+T2   #22.2 [readarray] → bash-exec (detect:yes)
+
+
+── Coprocesses
+T2   #23.1 [basic coproc] → bash-exec (detect:yes)
+
+
+── Real-World One-Liners
+PASS #24.1 [basename in subst] → T1:translate
+
+PASS #24.2 [dirname in subst] → T1:translate
+
+PASS #24.3 [uname system info] → T1:translate
+
+PASS #24.4 [nproc cores] → T1:translate
+
+PASS #24.5 [awk field extract] → T1:translate
+
+PASS #24.6 [sed substitution] → T1:translate
+
+PASS #24.7 [xargs with placeholder] → T1:translate
+
+PASS #24.8 [check cmd exists] → T1:translate
+
+PASS #24.9 [test -f file] → T1:translate
+
+PASS #24.10 [export + run] → T1:translate
+
+
+── Obscure & Exotic
+T2   #25.1 [ANSI-C quoting] → bash-exec (detect:no)
+
+PASS #25.2 [brace alpha range] → T1:translate
+
+PASS #25.3 [brace seq step] → T1:translate
+
+T2   #25.4 [printf repetition] → bash-exec (detect:yes)
+
+PASS #25.5 [tilde expansion] → T1:translate
+
+PASS #25.6 [empty if body (: noop)] → T1:translate
+
+T2   #25.7 [IFS manipulation] → bash-exec (detect:yes)
+
+T2   #25.8 [regex capture groups] → bash-exec (detect:yes)
+
+PASS #25.9 [wait for bg jobs] → T1:translate
+
+PASS #25.10 [nested brace+arith] → T1:translate
+
+PASS #25.11 [set -eo pipefail] → T1:translate
+
+PASS #25.12 [multiple redirection] → T1:translate
+
+T2   #25.13 [arith in array index] → bash-exec (detect:yes)
+
+T2   #25.14 [extglob] → bash-exec (detect:yes)
+
+PASS #25.15 [read from brace group] → T1:translate
+
+PASS #25.16 [nested case in loop] → T1:translate
+
+PASS #25.17 [function + export] → T1:translate
+
+PASS #25.18 [multiline semicolons] → T1:translate
+
+PASS #25.19 [deeply chained pipes] → T1:translate
+
+
+── Stress & Breakage Attempts
+PASS #26.1 [100 iteration loop] → T1:translate
+
+PASS #26.2 [long pipeline] → T1:translate
+
+PASS #26.3 [var with special chars] → T1:translate
+
+PASS #26.4 [semicolons everywhere] → T1:translate
+
+T2   #26.5 [nested subshells] → bash-exec (detect:no)
+
+T2~  #26.6 [empty subshell] → bash-exec (detect:no, output differs)
+  cmd:  (); echo "after"
+  bash: 
+  bexe: bash: eval: line 1: syntax error near unexpected token `)'
+bash: eval: line 1: `(); echo "after"'
+
+PASS #26.7 [if with complex condition] → T1:translate
+
+PASS #26.8 [arithmetic overflow] → T1:translate
+
+PASS #26.9 [whitespace in var] → T1:translate
+
+T2   #26.10 [newline in var] → bash-exec (detect:no)
+
+T2   #26.11 [tab in var] → bash-exec (detect:no)
+
+PASS #26.12 [empty case match] → T1:translate
+
+PASS #26.13 [case with spaces] → T1:translate
+
+PASS #26.14 [for loop no body] → T1:translate
+
+PASS #26.15 [while false] → T1:translate
+
+PASS #26.16 [export existing PATH] → T1:translate
+
+T2   #26.17 [nested arithmetic] → bash-exec (detect:yes)
+
+PASS #26.18 [command with equals] → T1:translate
+
+PASS #26.19 [multiple here strings] → T1:translate
+
+PASS #26.20 [chained tests] → T1:translate
+
+
+── Real-World Tool Patterns (may not be installed)
+PASS #27.1 [nvm setup] → T1:translate
+
+PASS #27.2 [conda path] → T1:translate
+
+PASS #27.3 [pyenv init] → T1:translate
+
+PASS #27.4 [cargo/rust path] → T1:translate
+
+PASS #27.5 [docker compose] → T1:translate
+
+PASS #27.6 [aws cli pattern] → T1:translate
+
+PASS #27.7 [kubectl pattern] → T1:translate
+
+FAIL #27.8 [terraform pattern] → T1:translate
+  cmd:  TF_VER=$(terraform version -json 2>/dev/null | head -1 || echo "none"); echo "TF: $TF_VER"
+  xlat: set TF_VER (terraform version -json 2>/dev/null | head -1; or echo "none")
+echo "TF: $TF_VER"
+  bash: TF: 
+  fish: TF: none
+
+PASS #27.9 [npm/node pattern] → T1:translate
+
+PASS #27.10 [go version pattern] → T1:translate
+
+FAIL #27.11 [java version pattern] → T1:translate
+  cmd:  JAVA_VER=$(java -version 2>&1 | head -1 || echo "none"); echo "Java: $JAVA_VER"
+  xlat: set JAVA_VER (java -version 2>&1 | head -1; or echo "none")
+echo "Java: $JAVA_VER"
+  bash: Java: bash: line 1: java: command not found
+  fish: Java: none
+
+PASS #27.12 [ruby version pattern] → T1:translate
+
+PASS #27.13 [ssh remote cmd] → T1:translate
+
+PASS #27.14 [curl installer pattern] → T1:translate
+
+PASS #27.15 [git hook one-liner] → T1:translate
+
+PASS #27.16 [systemd status check] → T1:translate
+
+PASS #27.17 [pip install pattern] → T1:translate
+
+PASS #27.18 [conda activate pattern] → T1:translate
+
+T2   #27.19 [process CSV files] → bash-exec (detect:yes)
+
+PASS #27.20 [system info one-liner] → T1:translate
+
+═══════════════════════════════════════════
+SUMMARY
+T1 PASS:    178
+T2 OK:      68
+T2 diff:    2
+FAIL:       3
+SKIP:       0
+Total:      251
+
+Notes on FAILs:
+  #14.1 — ls tool wrapper not yet implemented; fish's
+          built-in ls formats errors differently from
+          GNU coreutils ls.
+  #27.8 — works correctly when terraform is installed;
+          fails here because the dependency is missing.
+  #27.11 — works correctly when java is installed;
+           fails here because the dependency is missing.
+═══════════════════════════════════════════
