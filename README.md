@@ -50,8 +50,8 @@ Wrappers for tools you haven't installed simply pass through to the original com
 git clone https://github.com/ZStud/reef
 cd reef
 cargo build --release
-fish install.fish              # core only
-fish install.fish --tools      # also install tool wrappers
+fish fish/install.fish              # core only
+fish fish/install.fish --tools      # also install tool wrappers
 ```
 
 The install script places the binary and fish functions in the right locations. No configuration needed.
@@ -66,7 +66,7 @@ yay -R reef-tools        # removes tool wrappers
 
 **From source:**
 ```bash
-fish install.fish --uninstall
+fish fish/install.fish --uninstall
 cargo uninstall reef      # if installed via cargo install
 ```
 
