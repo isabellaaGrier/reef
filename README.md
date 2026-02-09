@@ -33,10 +33,17 @@ Reef requires nothing. You install it and forget it exists.
 ### Arch / CachyOS (AUR)
 ```
 yay -S reef              # bash compatibility layer
-yay -S reef-tools        # modern tool wrappers (grep→rg, find→fd, ls→eza, etc.)
+yay -S reef-tools        # modern tool wrappers (grep→rg, find→fd, cat→bat, cd→zoxide, etc.)
 ```
 
-The two packages are independent — install either or both.
+The two packages are independent — install either or both. `reef-tools` installs the wrappers only — the modern tools themselves are optional dependencies. Install whichever ones you want:
+
+```
+paru -S ripgrep fd sd dust procs eza bat zoxide   # all of them
+paru -S bat zoxide                                 # or just the ones you want
+```
+
+Wrappers for tools you haven't installed simply pass through to the original command.
 
 ### From source
 ```bash
@@ -150,6 +157,8 @@ reef history both          # log both
 | `ls` | [eza](https://github.com/eza-community/eza) | Git-aware. Colors and icons. Tree view with `-R`. Human sizes by default. |
 | `du` | [dust](https://github.com/bootandy/dust) | Visual bar chart of disk usage. Instant overview instead of a wall of numbers. |
 | `ps` | [procs](https://github.com/dalance/procs) | Colorized. Searchable. Shows ports, Docker containers, tree view. |
+| `cat` | [bat](https://github.com/sharkdp/bat) | Syntax highlighting. Line numbers. Git diff markers. Auto-paging. Pipe-safe. |
+| `cd` | [zoxide](https://github.com/ajeetdsouza/zoxide) | Learns your habits. Fuzzy-matches directories. `cd proj` jumps to `/home/you/Projects`. |
 
 ```
 ❯ grep -ri "TODO" src/           # actually runs: rg -i "TODO" src/
@@ -158,6 +167,8 @@ reef history both          # log both
 ❯ ls -ltr                        # actually runs: eza -l --sort=modified --reverse
 ❯ du -sh /var                    # actually runs: dust -d 1 /var
 ❯ ps aux                         # actually runs: procs (shows all by default)
+❯ cat config.yaml                # actually runs: bat (highlighting, line numbers, pager)
+❯ cd proj                        # actually runs: zoxide (fuzzy-matches to ~/Projects)
 ```
 
 The wrappers handle combined flags (`-sh` → `-s` + `-h`), flags with arguments (`-A 3`, `--max-depth=2`), `--include`/`--exclude` glob translation, and more. `--version` and `--help` pass through to the original tool so nothing surprises you. If a wrapper hits a flag it doesn't recognize, it falls back to the real GNU tool automatically — nothing breaks.

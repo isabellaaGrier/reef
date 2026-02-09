@@ -50,8 +50,18 @@ package_reef() {
 }
 
 package_reef-tools() {
-    pkgdesc="Modern CLI tool wrappers for fish — grep→rg, find→fd, sed→sd, du→dust, ps→procs, ls→eza"
-    depends=('fish' 'ripgrep' 'fd' 'sd' 'dust' 'procs' 'eza')
+    pkgdesc="Modern CLI tool wrappers for fish — grep→rg, find→fd, sed→sd, du→dust, ps→procs, ls→eza, cat→bat, cd→zoxide"
+    depends=('fish')
+    optdepends=(
+        'ripgrep: grep → rg wrapper'
+        'fd: find → fd wrapper'
+        'sd: sed → sd wrapper'
+        'dust: du → dust wrapper'
+        'procs: ps → procs wrapper'
+        'eza: ls → eza wrapper'
+        'bat: cat → bat wrapper'
+        'zoxide: cd → zoxide smart directory jumping'
+    )
 
     cd "$pkgbase-$pkgver"
 
@@ -62,6 +72,7 @@ package_reef-tools() {
     install -Dm644 fish/functions/tools/du.fish "$pkgdir/usr/share/fish/vendor_functions.d/du.fish"
     install -Dm644 fish/functions/tools/ps.fish "$pkgdir/usr/share/fish/vendor_functions.d/ps.fish"
     install -Dm644 fish/functions/tools/ls.fish "$pkgdir/usr/share/fish/vendor_functions.d/ls.fish"
+    install -Dm644 fish/functions/tools/cat.fish "$pkgdir/usr/share/fish/vendor_functions.d/cat.fish"
 
     # conf.d (sources wrappers at startup to override fish builtins like grep.fish)
     install -Dm644 fish/conf.d/reef-tools.fish "$pkgdir/usr/share/fish/vendor_conf.d/reef-tools.fish"

@@ -41,7 +41,8 @@ set -l tool_functions \
     sed.fish \
     du.fish \
     ps.fish \
-    ls.fish
+    ls.fish \
+    cat.fish
 
 if test $uninstall = true
     echo "reef: uninstalling..."
