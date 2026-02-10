@@ -37,6 +37,12 @@ pub fn looks_like_bash(input: &str) -> bool {
         return true;
     }
 
+    // Standalone (( )) arithmetic: (( i++ )), (( x += 5 )), etc.
+    // Must not be $((  which is already caught above.
+    if has_standalone_double_paren(input) {
+        return true;
+    }
+
     // C-style for loop: for ((i=0; ...
     if input.contains("for ((") {
         return true;
@@ -47,6 +53,19 @@ pub fn looks_like_bash(input: &str) -> bool {
         return true;
     }
 
+    false
+}
+
+/// Check for standalone `((` not preceded by `$` (which would be `$((` arithmetic substitution).
+fn has_standalone_double_paren(input: &str) -> bool {
+    let bytes = input.as_bytes();
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i] == b'(' && bytes[i + 1] == b'(' {
+            if i == 0 || bytes[i - 1] != b'$' {
+                return true;
+            }
+        }
+    }
     false
 }
 
@@ -108,6 +127,16 @@ mod tests {
     #[test]
     fn detects_parameter_expansion() {
         assert!(looks_like_bash("echo ${HOME:-/tmp}"));
+    }
+
+    #[test]
+    fn detects_standalone_double_paren() {
+        assert!(looks_like_bash("(( i++ ))"));
+        assert!(looks_like_bash("(( x += 5 ))"));
+        assert!(looks_like_bash("(( count = 0 ))"));
+        // $((  is already detected via the $((  indicator, but should not be
+        // confused with standalone ((
+        assert!(looks_like_bash("echo $((2 + 2))"));
     }
 
     #[test]

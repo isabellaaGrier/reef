@@ -44,11 +44,14 @@ impl fmt::Display for TranslateError {
 
 /// Translate a bash command string to fish shell syntax.
 pub fn translate_bash_to_fish(input: &str) -> Result<String, TranslateError> {
+    // Rewrite standalone (( )) to assignment forms before bail check
+    let input = rewrite_standalone_arith(input);
+
     // Bail early on constructs we can't translate correctly
-    pre_check_bail(input)?;
+    pre_check_bail(&input)?;
 
     // Pre-process: rewrite bash-isms that conch-parser can't handle
-    let input = preprocess(input);
+    let input = preprocess(&input);
 
     let lex = Lexer::new(input.chars());
     let parser = DefaultParser::new(lex);
@@ -118,6 +121,193 @@ fn pre_check_bail(input: &str) -> Result<(), TranslateError> {
         i += 1;
     }
     Ok(())
+}
+
+/// Rewrite standalone `(( expr ))` to equivalent bash that conch-parser can handle.
+///
+/// Handles:
+///   `(( i++ ))` / `(( ++i ))` → `i=$((i + 1))`
+///   `(( i-- ))` / `(( --i ))` → `i=$((i - 1))`
+///   `(( i += N ))` → `i=$((i + N))`
+///   `(( i -= N ))`, `*=`, `/=`, `%=` — same pattern
+///   `(( x = expr ))` → `x=$((expr))`
+///
+/// Unhandled patterns (comparisons, bare expressions, C-style for, comma sequences)
+/// pass through unchanged and are caught by `pre_check_bail` → bash fallback.
+fn rewrite_standalone_arith(input: &str) -> String {
+    let chars: Vec<char> = input.chars().collect();
+    let len = chars.len();
+    let mut result = String::with_capacity(len);
+    let mut i = 0;
+    let mut in_sq = false;
+    let mut in_dq = false;
+
+    while i < len {
+        if chars[i] == '\'' && !in_dq {
+            in_sq = !in_sq;
+            result.push(chars[i]);
+            i += 1;
+            continue;
+        }
+        if chars[i] == '"' && !in_sq {
+            in_dq = !in_dq;
+            result.push(chars[i]);
+            i += 1;
+            continue;
+        }
+        if in_sq || in_dq {
+            result.push(chars[i]);
+            i += 1;
+            continue;
+        }
+
+        // Look for (( not preceded by $
+        if chars[i] == '(' && i + 1 < len && chars[i + 1] == '('
+            && (i == 0 || chars[i - 1] != '$')
+        {
+            // Skip C-style for loops: for ((
+            let before = result.trim_end();
+            if before.ends_with("for") {
+                result.push(chars[i]);
+                i += 1;
+                continue;
+            }
+
+            // Try to find matching )) and rewrite
+            if let Some((expr, end_pos)) = find_matching_double_paren(&chars, i + 2) {
+                if let Some(rewritten) = rewrite_arith_expr(&expr) {
+                    result.push_str(&rewritten);
+                    i = end_pos;
+                    continue;
+                }
+            }
+        }
+
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    result
+}
+
+/// Find the matching `))` starting after `((`, respecting nested parens.
+fn find_matching_double_paren(chars: &[char], start: usize) -> Option<(String, usize)> {
+    let mut i = start;
+    let mut depth = 0; // single-paren depth for grouping like (a + b)
+    let mut expr = String::new();
+
+    while i < chars.len() {
+        if chars[i] == ')' && i + 1 < chars.len() && chars[i + 1] == ')' && depth == 0 {
+            return Some((expr.trim().to_string(), i + 2));
+        }
+        if chars[i] == '(' {
+            depth += 1;
+        }
+        if chars[i] == ')' {
+            if depth > 0 {
+                depth -= 1;
+            }
+        }
+        expr.push(chars[i]);
+        i += 1;
+    }
+
+    None
+}
+
+/// Try to rewrite a `(( ))` expression to an assignment form.
+/// Returns `Some("var=$((expr))")` on success, `None` if unhandled.
+fn rewrite_arith_expr(expr: &str) -> Option<String> {
+    let expr = expr.trim();
+    if expr.is_empty() {
+        return None;
+    }
+
+    // Post-increment: VAR++
+    if expr.ends_with("++") {
+        let var = expr[..expr.len() - 2].trim();
+        if is_arith_varname(var) {
+            return Some(format!("{}=$(({} + 1))", var, var));
+        }
+    }
+
+    // Pre-increment: ++VAR
+    if expr.starts_with("++") {
+        let var = expr[2..].trim();
+        if is_arith_varname(var) {
+            return Some(format!("{}=$(({} + 1))", var, var));
+        }
+    }
+
+    // Post-decrement: VAR--
+    if expr.ends_with("--") {
+        let var = expr[..expr.len() - 2].trim();
+        if is_arith_varname(var) {
+            return Some(format!("{}=$(({} - 1))", var, var));
+        }
+    }
+
+    // Pre-decrement: --VAR
+    if expr.starts_with("--") {
+        let var = expr[2..].trim();
+        if is_arith_varname(var) {
+            return Some(format!("{}=$(({} - 1))", var, var));
+        }
+    }
+
+    // Compound assignments: VAR += EXPR, VAR -= EXPR, VAR *= EXPR, etc.
+    for (op, math_op) in [("+=", "+"), ("-=", "-"), ("*=", "*"), ("/=", "/"), ("%=", "%")] {
+        if let Some(pos) = expr.find(op) {
+            let var = expr[..pos].trim();
+            let val = expr[pos + op.len()..].trim();
+            if is_arith_varname(var) && !val.is_empty() {
+                return Some(format!("{}=$(({} {} {}))", var, var, math_op, val));
+            }
+        }
+    }
+
+    // Simple assignment: VAR = EXPR (not ==, !=, <=, >=, +=, -=, *=, /=, %=)
+    if let Some(pos) = find_assign_eq(expr) {
+        let var = expr[..pos].trim();
+        let val = expr[pos + 1..].trim();
+        if is_arith_varname(var) && !val.is_empty() {
+            return Some(format!("{}=$(({}))", var, val));
+        }
+    }
+
+    None
+}
+
+/// Find a simple `=` in an arithmetic expression that represents assignment.
+/// Skips `==`, `!=`, `<=`, `>=`, `+=`, `-=`, `*=`, `/=`, `%=`.
+fn find_assign_eq(expr: &str) -> Option<usize> {
+    let bytes = expr.as_bytes();
+    for i in 0..bytes.len() {
+        if bytes[i] == b'=' {
+            // Skip ==
+            if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
+                continue;
+            }
+            // Skip !=, <=, >=, +=, -=, *=, /=, %=
+            if i > 0 {
+                match bytes[i - 1] {
+                    b'!' | b'<' | b'>' | b'+' | b'-' | b'*' | b'/' | b'%' => continue,
+                    _ => {}
+                }
+            }
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// Check if a string is a valid bash variable name for arithmetic contexts.
+fn is_arith_varname(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .next()
+            .map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Pre-process bash input to rewrite constructs that conch-parser cannot parse.
@@ -2933,5 +3123,118 @@ mod tests {
     fn herestring_variable() {
         let result = t("grep foo <<< $input");
         assert!(result.contains("echo $input | grep foo"), "got: {}", result);
+    }
+
+    // --- Standalone (( )) arithmetic ---
+
+    #[test]
+    fn standalone_arith_post_increment() {
+        let result = t("(( i++ ))");
+        assert!(result.contains("set i"), "got: {}", result);
+        assert!(result.contains("math"), "got: {}", result);
+        assert!(result.contains("+ 1"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_pre_increment() {
+        let result = t("(( ++i ))");
+        assert!(result.contains("set i"), "got: {}", result);
+        assert!(result.contains("+ 1"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_post_decrement() {
+        let result = t("(( i-- ))");
+        assert!(result.contains("set i"), "got: {}", result);
+        assert!(result.contains("- 1"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_pre_decrement() {
+        let result = t("(( --i ))");
+        assert!(result.contains("set i"), "got: {}", result);
+        assert!(result.contains("- 1"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_plus_equals() {
+        let result = t("(( count += 5 ))");
+        assert!(result.contains("set count"), "got: {}", result);
+        assert!(result.contains("math"), "got: {}", result);
+        assert!(result.contains("+ 5"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_minus_equals() {
+        let result = t("(( x -= 3 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("- 3"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_times_equals() {
+        let result = t("(( x *= 2 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("* 2"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_div_equals() {
+        let result = t("(( x /= 4 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("/ 4"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_mod_equals() {
+        let result = t("(( x %= 3 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("% 3"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_simple_assign() {
+        let result = t("(( x = 42 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("42"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_assign_expr() {
+        let result = t("(( x = y + 1 ))");
+        assert!(result.contains("set x"), "got: {}", result);
+        assert!(result.contains("math"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_in_loop() {
+        // Common pattern: while loop with counter
+        let result = t("while test $i -lt 10; do echo $i; (( i++ )); done");
+        assert!(result.contains("while test $i -lt 10"), "got: {}", result);
+        assert!(result.contains("set i"), "got: {}", result);
+        assert!(result.contains("+ 1"), "got: {}", result);
+        assert!(result.contains("end"), "got: {}", result);
+    }
+
+    #[test]
+    fn standalone_arith_comparison_falls_through() {
+        // Bare comparisons like (( x > 5 )) can't be rewritten to assignment form,
+        // so they should fall through to bash
+        let result = translate_bash_to_fish("(( x > 5 ))");
+        assert!(result.is_err(), "expected unsupported error for bare comparison");
+    }
+
+    #[test]
+    fn standalone_arith_cstyle_for_falls_through() {
+        // C-style for loops should not be rewritten
+        let result = translate_bash_to_fish("for (( i=0; i<10; i++ )); do echo $i; done");
+        assert!(result.is_err(), "expected unsupported error for C-style for");
+    }
+
+    #[test]
+    fn standalone_arith_in_quotes_untouched() {
+        // (( )) inside quotes should not be rewritten
+        let result = t("echo '(( i++ ))'");
+        assert!(result.contains("(( i++ ))"), "got: {}", result);
     }
 }
