@@ -33,16 +33,26 @@ function fish_should_add_to_history
 end
 
 # --- Enter Key Hook ---
+# Chain to any previously-bound Enter handler (oh-my-posh, starship, etc.)
+# so their features (transient prompt, etc.) still work alongside reef.
+function __reef_chain_enter
+    if set -q __reef_prev_enter_handler; and functions -q $__reef_prev_enter_handler
+        $__reef_prev_enter_handler
+    else
+        commandline -f execute
+    end
+end
+
 function __reef_execute
     set -l cmd (commandline)
 
     if test -z "$cmd"
-        commandline -f execute
+        __reef_chain_enter
         return
     end
 
     if test "$reef_enabled" != true; or not command -q reef
-        commandline -f execute
+        __reef_chain_enter
         return
     end
 
@@ -68,7 +78,7 @@ function __reef_execute
             end
 
             commandline -r -- $oneliner
-            commandline -f execute
+            __reef_chain_enter
             return
         end
 
@@ -87,11 +97,11 @@ function __reef_execute
         set -g __reef_skip_history true
 
         commandline -r -- $fallback
-        commandline -f execute
+        __reef_chain_enter
         return
     end
 
-    commandline -f execute
+    __reef_chain_enter
 end
 
 # --- Display Fixup (runs before command output) ---
@@ -203,17 +213,31 @@ function reef --description "reef: bash compatibility settings"
     end
 end
 
-bind \r __reef_execute
-bind \n __reef_execute
+# --- Deferred Binding Setup ---
+# Runs on first prompt so we load AFTER other tools (oh-my-posh, starship, etc.)
+# that also bind Enter. This lets us capture their handler and chain to it.
+function __reef_setup --on-event fish_prompt
+    functions -e __reef_setup
 
-if bind -M insert \r 2>/dev/null
-    bind -M insert \r __reef_execute
-    bind -M insert \n __reef_execute
-end
+    # Save existing Enter handler for chaining (check insert mode first,
+    # then default — prompt tools like oh-my-posh bind across all modes)
+    set -l prev (bind -M insert \r 2>/dev/null | string match -r '\S+$')
+    if not test -n "$prev"; or not functions -q $prev
+        set prev (bind \r 2>/dev/null | string match -r '\S+$')
+    end
+    if test -n "$prev"; and functions -q $prev
+        set -g __reef_prev_enter_handler $prev
+    end
 
-# Auto-source .bashrc (deferred to first prompt so PATH is ready)
-function __reef_source_bashrc --on-event fish_prompt
-    functions -e __reef_source_bashrc
+    bind \r __reef_execute
+    bind \n __reef_execute
+
+    if bind -M insert \r 2>/dev/null
+        bind -M insert \r __reef_execute
+        bind -M insert \n __reef_execute
+    end
+
+    # Auto-source .bashrc
     if test -f ~/.bashrc; and command -q reef
         reef bash-exec --env-diff -- "source ~/.bashrc" 2>/dev/null | source
     end
