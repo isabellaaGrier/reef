@@ -232,7 +232,7 @@ function __reef_setup --on-event fish_prompt
     bind \r __reef_execute
     bind \n __reef_execute
 
-    if bind -M insert \r 2>/dev/null
+    if bind -M insert \r >/dev/null 2>&1
         bind -M insert \r __reef_execute
         bind -M insert \n __reef_execute
     end

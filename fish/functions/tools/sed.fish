@@ -54,6 +54,10 @@ function sed --description "GNU sed → sd wrapper"
                 # Not a sed expression, treat as file/arg
                 set -a files $arg
             end
+        else if string match -q -- '-*' $arg
+            # Unrecognized flag — fall back to real sed
+            command sed $argv
+            return $status
         else
             set -a files $arg
         end
