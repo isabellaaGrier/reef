@@ -4,5 +4,13 @@ function cat --wraps=bat --description "cat → bat"
         return $status
     end
 
-    command bat $argv
+    # Pass through --version/--help to the real tool
+    for a in $argv
+        if test "$a" = "--version"; or test "$a" = "--help"
+            command cat $argv
+            return $status
+        end
+    end
+
+    command bat $argv 2>/dev/null; or command cat $argv
 end

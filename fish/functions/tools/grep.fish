@@ -43,7 +43,7 @@ function grep --description "GNU grep → ripgrep (rg) wrapper"
         else if test "$arg" = "-n"; or test "$arg" = "--line-number"
             set -a rg_args -n
         else if test "$arg" = "-H"; or test "$arg" = "--with-filename"
-            # rg default, no-op
+            set -a rg_args --with-filename
         else if test "$arg" = "-h"; or test "$arg" = "--no-filename"
             set -a rg_args --no-filename
         else if test "$arg" = "-o"; or test "$arg" = "--only-matching"
@@ -105,5 +105,5 @@ function grep --description "GNU grep → ripgrep (rg) wrapper"
         set i (math $i + 1)
     end
 
-    command rg $rg_args
+    command rg $rg_args 2>/dev/null; or command grep $argv
 end

@@ -127,7 +127,7 @@ function sed --description "GNU sed → sd wrapper"
             set -a sd_args -f i
         end
 
-        set -a sd_args $find_pat $replace_pat
+        set -a sd_args '--' $find_pat $replace_pat
     end
 
     # Handle backup before in-place edit
@@ -137,19 +137,16 @@ function sed --description "GNU sed → sd wrapper"
         end
     end
 
-    # Execute sd
+    # Execute sd — fall back to real sed if sd fails (e.g. unsupported regex)
     if test (count $files) -gt 0
         if test $in_place = true
-            # sd modifies files in-place by default when given file args
-            command sd $sd_args $files
+            command sd $sd_args $files 2>/dev/null; or command sed $argv
         else
-            # No -i flag: pipe file through sd to stdout (don't modify original)
             for f in $files
-                command sd $sd_args <$f
+                command sd $sd_args <$f 2>/dev/null; or command sed $argv
             end
         end
     else
-        # Stdin mode
-        command sd $sd_args
+        command sd $sd_args 2>/dev/null; or command sed $argv
     end
 end

@@ -13,6 +13,7 @@ function find --description "GNU find → fd wrapper"
     end
 
     set -l fd_args
+    set -l exec_fd_args
     set -l search_paths
     set -l has_pattern false
     set -l exec_args
@@ -27,11 +28,11 @@ function find --description "GNU find → fd wrapper"
         if test $in_exec = true
             if test "$arg" = ";"
                 set in_exec false
-                set -a fd_args -x $exec_args
+                set -a exec_fd_args -x $exec_args
                 set exec_args
             else if test "$arg" = "+"
                 set in_exec false
-                set -a fd_args -X $exec_args
+                set -a exec_fd_args -X $exec_args
                 set exec_args
             else if test "$arg" != "{}"
                 set -a exec_args $arg
@@ -51,11 +52,11 @@ function find --description "GNU find → fd wrapper"
 
         if test "$arg" = "-name"
             set i (math $i + 1)
-            set has_pattern true
             set -l nameglob $argv[$i]
             if string match -qr '^\*\.\w+$' -- $nameglob
                 set -a fd_args -e (string replace -- '*.' '' $nameglob)
             else
+                set has_pattern true
                 set -a fd_args --glob $nameglob
             end
         else if test "$arg" = "-iname"
@@ -89,7 +90,7 @@ function find --description "GNU find → fd wrapper"
         else if test "$arg" = "-exec"
             set in_exec true
         else if test "$arg" = "-delete"
-            set -a fd_args -X rm -rf
+            set -a exec_fd_args -X rm -rf
         else if test "$arg" = "-print"
             # no-op
         else if test "$arg" = "-print0"
@@ -122,12 +123,13 @@ function find --description "GNU find → fd wrapper"
         set search_paths .
     end
 
-    # fd syntax: fd [OPTIONS] [pattern] [path...]
-    # When we have search paths that aren't "." and no explicit regex pattern,
-    # fd needs a match-all pattern "." to avoid interpreting the path as a pattern
-    if test "$search_paths" != "."
-        command fd $fd_args . $search_paths
+    # fd syntax: fd [OPTIONS] [pattern] [path...] [-x/-X cmd...]
+    # exec args must come after paths so fd doesn't treat paths as exec arguments
+    if test $has_pattern = true
+        command fd $fd_args $search_paths $exec_fd_args 2>/dev/null; or command find $argv
+    else if test "$search_paths" != "."
+        command fd $fd_args . $search_paths $exec_fd_args 2>/dev/null; or command find $argv
     else
-        command fd $fd_args
+        command fd $fd_args $exec_fd_args 2>/dev/null; or command find $argv
     end
 end

@@ -46,7 +46,7 @@ function ls --description "GNU ls → eza wrapper"
         else if test "$arg" = "-g"
             set -a eza_args -l --no-user
         else if test "$arg" = "-o"
-            set -a eza_args -l --no-group
+            set -a eza_args -l
         else if test "$arg" = "--color"
             set i (math $i + 1)
             set -a eza_args --color=$argv[$i]
@@ -78,5 +78,5 @@ function ls --description "GNU ls → eza wrapper"
         set i (math $i + 1)
     end
 
-    command eza $eza_args
+    command eza $eza_args 2>/dev/null; or command ls $argv
 end

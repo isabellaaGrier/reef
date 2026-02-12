@@ -237,6 +237,23 @@ function __reef_setup --on-event fish_prompt
         bind -M insert \n __reef_execute
     end
 
+    # Erase any distro/user aliases that shadow reef-tools wrappers
+    # (e.g. CachyOS, Garuda define simple eza/rg aliases).
+    # Fish will autoload our smarter versions from vendor_functions.d on first use.
+    # Only erase if our wrapper file exists, so uninstalling reef-tools restores originals.
+    for __reef_tool in ls cat grep find sed du ps
+        for __reef_dir in $fish_function_path
+            if string match -q '*vendor_functions.d' -- $__reef_dir
+                and test -f "$__reef_dir/$__reef_tool.fish"
+                functions -e $__reef_tool
+                break
+            end
+        end
+    end
+    # Erase sub-aliases that conflict (only if we erased the parent)
+    functions -q ls; or functions -e la ll lt
+    functions -q grep; or functions -e fgrep egrep
+
     # Auto-source .bashrc
     if test -f ~/.bashrc; and command -q reef
         reef bash-exec --env-diff -- "source ~/.bashrc" 2>/dev/null | source

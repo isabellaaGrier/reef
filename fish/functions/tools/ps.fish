@@ -85,5 +85,5 @@ function ps --description "GNU ps → procs wrapper"
         set i (math $i + 1)
     end
 
-    command procs $procs_args
+    command procs $procs_args 2>/dev/null; or command ps $argv
 end

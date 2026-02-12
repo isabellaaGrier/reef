@@ -84,8 +84,8 @@ function du --description "GNU du → dust wrapper"
     end
 
     if test (count $paths) -gt 0
-        command dust $dust_args $paths
+        command dust $dust_args $paths 2>/dev/null; or command du $argv
     else
-        command dust $dust_args
+        command dust $dust_args 2>/dev/null; or command du $argv
     end
 end
