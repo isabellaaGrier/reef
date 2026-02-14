@@ -39,7 +39,6 @@ package_reef() {
     install -Dm644 fish/functions/local.fish "$pkgdir/usr/share/fish/vendor_functions.d/local.fish"
     install -Dm644 fish/functions/readonly.fish "$pkgdir/usr/share/fish/vendor_functions.d/readonly.fish"
     install -Dm644 fish/functions/shopt.fish "$pkgdir/usr/share/fish/vendor_functions.d/shopt.fish"
-    install -Dm644 fish/functions/source.fish "$pkgdir/usr/share/fish/vendor_functions.d/source.fish"
     install -Dm644 fish/functions/fish_command_not_found.fish "$pkgdir/usr/share/fish/vendor_functions.d/fish_command_not_found.fish"
 
     # conf.d (auto-loaded on fish startup)

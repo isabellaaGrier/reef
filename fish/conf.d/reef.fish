@@ -56,6 +56,30 @@ function __reef_execute
         return
     end
 
+    # Intercept `source <file>` / `. <file>` for bash scripts.
+    # Can't use a source.fish function wrapper — it changes variable scope
+    # for all sourced files, breaking conf.d variable definitions.
+    if string match -qr '^(source|\.)\s+' -- $cmd
+        set -l source_file (string replace -r '^(source|\.)\s+' '' -- $cmd | string trim)
+        set source_file (string trim -c '"' -- $source_file | string trim -c "'")
+        set source_file (string replace -r '^~' "$HOME" -- $source_file)
+        if test -f "$source_file"; and not string match -qr '\.fish$' -- $source_file
+            # Non-.fish file exists — route through bash for env capture
+            set -l safe_cmd (string replace -a "'" "'\\''" -- "$cmd")
+            commandline -r -- "reef bash-exec --env-diff -- '$safe_cmd' | source"
+
+            if test "$reef_display" = bash
+                set -g __reef_display_original $cmd
+                set -g __reef_display_prompt (fish_prompt 2>/dev/null | string split \n)[-1]
+            end
+            set -g __reef_bash_original $cmd
+            set -g __reef_skip_history true
+
+            __reef_chain_enter
+            return
+        end
+    end
+
     if reef detect --quick -- "$cmd" 2>/dev/null
         set -l translated (reef translate -- "$cmd" 2>/dev/null)
         set -l translate_status $status

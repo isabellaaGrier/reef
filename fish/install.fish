@@ -31,7 +31,6 @@ set -l core_functions \
     local.fish \
     readonly.fish \
     shopt.fish \
-    source.fish \
     fish_command_not_found.fish
 
 # Tool wrapper files
