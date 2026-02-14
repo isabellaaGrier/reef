@@ -68,6 +68,13 @@ pub fn looks_like_bash(input: &str) -> bool {
         return true;
     }
 
+    // Bash-only fd redirections: fd number >= 3 followed by > or <.
+    // Fish supports 0<, 1>, and 2> natively; anything higher is bash-only.
+    // Catches: 3>&1, 4>&2, 5>/dev/null, etc.
+    if has_bash_fd_redirect(bytes) {
+        return true;
+    }
+
     // Keyword-based checks — only if separator chars were seen.
     if has_keyword_char {
         // Substring indicators with enough built-in context to avoid false positives.
@@ -191,6 +198,50 @@ fn has_brace_range(bytes: &[u8]) -> bool {
                         return true;
                     }
                 }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    false
+}
+
+/// Detect bash-only fd redirections: a digit followed by `>` or `<` where the
+/// fd number is >= 3. Fish natively supports `0<`, `1>`, and `2>`.
+/// Skips single- and double-quoted sections.
+fn has_bash_fd_redirect(bytes: &[u8]) -> bool {
+    let len = bytes.len();
+    let mut i = 0;
+    while i < len {
+        match bytes[i] {
+            b'\'' => {
+                i += 1;
+                while i < len && bytes[i] != b'\'' { i += 1; }
+            }
+            b'"' => {
+                i += 1;
+                while i < len && bytes[i] != b'"' {
+                    if bytes[i] == b'\\' { i += 1; }
+                    i += 1;
+                }
+            }
+            b'0'..=b'9' => {
+                let start = i;
+                while i < len && bytes[i].is_ascii_digit() { i += 1; }
+                if i < len && matches!(bytes[i], b'>' | b'<') {
+                    // Only flag if at a word boundary (not mid-token like "echo 300>f")
+                    let is_word_start = start == 0
+                        || matches!(bytes[start - 1], b' ' | b'\t' | b';' | b'\n' | b'|' | b'&');
+                    if is_word_start {
+                        // Fish supports 0<, 1>, 2> natively. Anything >= 3 is bash-only.
+                        let num = &bytes[start..i];
+                        let is_fish_fd = matches!(num, b"0" | b"1" | b"2");
+                        if !is_fish_fd {
+                            return true;
+                        }
+                    }
+                }
+                continue;
             }
             _ => {}
         }
@@ -621,5 +672,24 @@ mod tests {
         // Should not match variable names that start with a bash var name
         assert!(!looks_like_bash("echo $RANDOM_SEED"));
         assert!(!looks_like_bash("echo $SECONDS_ELAPSED"));
+    }
+
+    #[test]
+    fn detects_fd_redirections() {
+        // exec with fd manipulation — bash-only (fd >= 3)
+        assert!(looks_like_bash("exec 3>&1 4>&2"));
+        assert!(looks_like_bash("exec 3>/dev/null"));
+        // Standalone fd >= 3
+        assert!(looks_like_bash("echo hello 3>&1"));
+        assert!(looks_like_bash("cmd 5>/tmp/log"));
+        // Fish natively supports 0<, 1>, 2> — don't flag these
+        assert!(!looks_like_bash("echo hello 2>/dev/null"));
+        assert!(!looks_like_bash("cmd 2>&1"));
+        assert!(!looks_like_bash("cmd 1>/dev/null"));
+        assert!(!looks_like_bash("cat 0</dev/stdin"));
+        // Digits in other contexts — not fd redirections
+        assert!(!looks_like_bash("echo 300"));
+        assert!(!looks_like_bash("echo 3 > file"));  // space before > = not fd redirect
+        assert!(!looks_like_bash("seq 1 10"));
     }
 }

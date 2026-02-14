@@ -654,6 +654,14 @@ fn emit_trap(ctx: &mut Ctx, args: &[&Word<'_>], out: &mut String) -> Res<()> {
             return Err(TranslateError::Unsupported("trap ERR (no fish equivalent)"));
         }
 
+        // EXIT trap inside a subshell: fish's begin/end has no "on-exit" event,
+        // so fish_exit won't fire when the begin block ends. Bail to T3.
+        if (name == "EXIT" || name == "0") && ctx.in_subshell {
+            return Err(TranslateError::Unsupported(
+                "trap EXIT in subshell (no fish equivalent)",
+            ));
+        }
+
         out.push_str("function __reef_trap_");
         out.push_str(name);
         if name == "EXIT" || name == "0" {
@@ -1402,6 +1410,14 @@ fn emit_word(ctx: &mut Ctx, word: &Word<'_>, out: &mut String) -> Res<()> {
             "nested brace expansion (fish expands in different order)",
         ));
     }
+    // Brace range combined with non-literal parts (e.g. {a..c}$(cmd)) —
+    // bash expands brace range first, creating separate words each getting
+    // the suffix. Fish doesn't distribute the suffix across brace-expanded words.
+    if word_has_brace_range_concat(word) {
+        return Err(TranslateError::Unsupported(
+            "brace range with concatenated expansion",
+        ));
+    }
     match word {
         Word::Simple(p) => emit_word_part(ctx, p, out),
         Word::Concat(parts) => {
@@ -1519,6 +1535,29 @@ fn emit_atom(ctx: &mut Ctx, atom: &Atom<'_>, out: &mut String) -> Res<()> {
             Ok(())
         }
     }
+}
+
+/// Check if a Concat word contains a BraceRange alongside dynamic parts
+/// (command substitution, parameter expansion, etc.). Bash distributes the
+/// suffix across each brace-expanded element; fish doesn't.
+fn word_has_brace_range_concat(word: &Word<'_>) -> bool {
+    let parts = match word {
+        Word::Concat(parts) => parts,
+        _ => return false,
+    };
+    let has_brace_range = parts.iter().any(|p| {
+        matches!(p, WordPart::Bare(Atom::BraceRange { .. }))
+    });
+    if !has_brace_range {
+        return false;
+    }
+    // Check if any other part contains an expansion (param, subst, etc.).
+    // Pure literals like `{a..c}"hello"` are fine — fish handles those correctly.
+    parts.iter().any(|p| match p {
+        WordPart::Bare(Atom::Param(_) | Atom::Subst(_) | Atom::ProcSubIn(_)) => true,
+        WordPart::DQuoted(atoms) => atoms.iter().any(|a| !matches!(a, Atom::Lit(_))),
+        _ => false,
+    })
 }
 
 /// Detect adjacent brace comma expansions like `{a,b}{1,2}` which fish expands
@@ -4540,6 +4579,26 @@ mod tests {
     #[test]
     fn subshell_exit_bails_to_t2() {
         assert!(translate_bash_to_fish("(exit 1)").is_err());
+    }
+
+    #[test]
+    fn trap_exit_in_subshell_bails() {
+        assert!(translate_bash_to_fish("( trap 'echo bye' EXIT; echo hi )").is_err());
+        // But trap EXIT at top level should still work
+        assert!(translate_bash_to_fish("trap 'echo bye' EXIT").is_ok());
+    }
+
+    #[test]
+    fn brace_range_with_subst_bails() {
+        // {a..c}$(cmd) — bash distributes suffix, fish doesn't
+        assert!(translate_bash_to_fish("echo {a..c}$(echo X)").is_err());
+        // {a..c}$var — same distribution issue
+        assert!(translate_bash_to_fish("echo {a..c}$suffix").is_err());
+        // Plain brace range without dynamic parts should still work
+        assert!(translate_bash_to_fish("echo {a..c}").is_ok());
+        assert!(translate_bash_to_fish("echo {1..5}").is_ok());
+        // Brace range with static string — fish handles correctly
+        assert!(translate_bash_to_fish(r#"echo {a..c}"hello""#).is_ok());
     }
 
     // --- Complex real-world translations ---

@@ -19,7 +19,6 @@ fn main() {
     match args[1].as_str() {
         "--version" | "-V" => {
             println!("reef {}", env!("CARGO_PKG_VERSION"));
-            return;
         }
         "detect" => {
             // --quick and full detection use the same heuristic for now;

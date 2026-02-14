@@ -120,7 +120,7 @@ reef history both          # log both
 
 ## What's Covered
 
-484 tests covering bash constructs across all tiers.
+487 tests covering bash constructs across all tiers.
 
 | Category | Examples | Tier |
 |---|---|---|
@@ -244,6 +244,20 @@ Bass requires prefixing every command with `bass`. Reef is automatic — you typ
 
 **Will the fish team support this?**
 Reef is an independent project. It uses fish's public APIs (functions, keybindings, `commandline` builtin) and doesn't modify fish internals. It works with fish, not against it.
+
+---
+
+## Limitations
+
+These are fundamental to how shell bridging works — not just reef, but any tool (bass, foreign-env, etc.) that runs bash from fish.
+
+**Unexported variables don't persist.** Reef runs bash commands in a subprocess and captures environment changes via `env`. Only exported variables appear in `env`, so `FOO=bar` (no `export`) set through bash passthrough won't persist in your fish session. `export FOO=bar` works fine.
+
+**File descriptor manipulation is single-command.** `exec 3>&1 4>&2` works when it's part of a single line (routed through bash passthrough), but fd state can't cross process boundaries. Typing `exec 3>&1` on one line and `echo >&3` on the next won't work — the fds exist only in the bash subprocess that already exited. Fish doesn't support arbitrary fd numbers.
+
+**Subshell isolation is real.** Commands run through Tier 3 passthrough execute in a bash subprocess. Side effects that aren't environment variables (open fds, process groups, signal handlers across commands) don't carry over.
+
+In practice, these rarely matter. The vast majority of copy-pasted bash — `export`, loops, pipes, conditionals, `curl | bash`, nvm/conda/pyenv init — works without hitting any of these limits.
 
 ---
 
