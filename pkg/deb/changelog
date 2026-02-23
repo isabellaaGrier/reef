@@ -3,6 +3,6 @@ reef (0.3.0-1) unstable; urgency=medium
   * Persistence modes (state, full) for cross-command bash state
   * Confirm mode — preview translations before executing
   * Library crate — reef is now both a binary and a Rust library
-  * 498 unit tests + 5 doc tests, zero clippy warnings
+  * 498 unit tests + 11 doc tests, zero clippy warnings
 
  -- Xavier B <zstud.dev@proton.me>  Sun, 23 Feb 2026 00:00:00 +0000

@@ -224,7 +224,7 @@ By default, each bash passthrough command runs in a fresh bash subprocess. Varia
 
 ### `reef persist off` (default)
 
-Current behavior. T1 -> T2 -> T3 pipeline. Each T3 passthrough spawns fresh bash. Zero overhead.
+Current behavior. T1 -> T2 -> T3 pipeline. Each T3 passthrough spawns fresh bash.
 
 ### `reef persist state`
 
@@ -393,7 +393,7 @@ The binary is ~490KB with zero dependencies, LTO, and strip. Detection runs on e
 - `# Panics` doc sections on functions with `.expect()`
 - `# Examples` doc tests on all public entry points (compile-verified)
 - `EnvSnapshot::diff_into()` — zero intermediate allocations
-- 498 unit tests + 5 doc tests, zero clippy warnings
+- 498 unit tests + 11 doc tests, zero clippy warnings
 
 ## v0.2
 
@@ -458,7 +458,7 @@ Reef is a library + binary crate with compile-time enforcement:
 
 Run the test suite:
 ```bash
-cargo test          # 498 unit tests + 5 doc tests
+cargo test          # 498 unit tests + 11 doc tests
 cargo clippy        # must be warning-free
 ```
 

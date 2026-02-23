@@ -93,4 +93,4 @@ cargo test --release --locked
 %changelog
 * Sun Feb 23 2026 Xavier B <zstud.dev@proton.me> - 0.3.0-1
 - Persistence modes (state, full), confirm mode, library crate
-- 498 unit tests + 5 doc tests, zero clippy warnings
+- 498 unit tests + 11 doc tests, zero clippy warnings
