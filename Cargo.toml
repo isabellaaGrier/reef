@@ -1,9 +1,21 @@
 [package]
 name = "reef"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Bash compatibility layer for fish shell"
 license = "MIT"
+repository = "https://github.com/ZStud/reef"
+homepage = "https://github.com/ZStud/reef"
+readme = "README.md"
+keywords = ["fish", "bash", "shell", "translator", "compatibility"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "fish/",
+    "tests/",
+    "PKGBUILD",
+    ".SRCINFO",
+    "pkg/",
+]
 
 [dependencies]
 

@@ -1,21 +1,62 @@
+//! Byte-oriented lexer for bash input.
+//!
+//! Operates on `&[u8]` with a position cursor. No token enum — the parser
+//! calls methods directly (`peek`/`eat`/`read`). Every read method returns
+//! `&'a str` — a zero-copy slice of the input.
+
 use std::fmt;
 
 /// Byte-oriented scanner for bash input. Operates on `&[u8]` with a position
 /// cursor. No token enum — the parser calls methods directly (peek/eat/read).
 /// Every read method returns `&'a str` — a zero-copy slice of the input.
-pub struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     src: &'a [u8],
     input: &'a str,
     pos: usize,
 }
 
 /// Error produced when the parser encounters invalid or unsupported bash syntax.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParseError {
+    pos: usize,
+    msg: &'static str,
+}
+
+impl ParseError {
+    /// Create a new parse error at the given byte offset.
+    pub(crate) fn new(pos: usize, msg: &'static str) -> Self {
+        ParseError { pos, msg }
+    }
+
     /// Byte offset in the input where the error occurred.
-    pub pos: usize,
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::parser::Parser;
+    /// let err = Parser::new("echo $(").parse().unwrap_err();
+    /// assert!(err.position() <= 7);
+    /// ```
+    #[must_use]
+    #[allow(dead_code)] // public API for downstream consumers
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
     /// Human-readable description of the error.
-    pub msg: &'static str,
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::parser::Parser;
+    /// let err = Parser::new("echo $(").parse().unwrap_err();
+    /// assert!(!err.message().is_empty());
+    /// ```
+    #[must_use]
+    #[allow(dead_code)] // public API for downstream consumers
+    pub fn message(&self) -> &'static str {
+        self.msg
+    }
 }
 
 impl fmt::Display for ParseError {
@@ -27,7 +68,8 @@ impl fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+    /// Create a new lexer for the given input string.
+    pub(crate) fn new(input: &'a str) -> Self {
         Lexer {
             src: input.as_bytes(),
             input,
@@ -39,19 +81,24 @@ impl<'a> Lexer<'a> {
     // Position / lookahead
     // -----------------------------------------------------------------------
 
+    /// Return the current byte offset.
     #[inline]
-    pub fn pos(&self) -> usize {
+    #[must_use]
+    pub(crate) fn pos(&self) -> usize {
         self.pos
     }
 
+    /// Return true if the cursor is at or past the end of input.
     #[inline]
-    pub fn is_eof(&self) -> bool {
+    #[must_use]
+    pub(crate) fn is_eof(&self) -> bool {
         self.pos >= self.src.len()
     }
 
     /// Peek current byte. Returns 0 at EOF — NUL never appears in shell input.
     #[inline]
-    pub fn peek(&self) -> u8 {
+    #[must_use]
+    pub(crate) fn peek(&self) -> u8 {
         if self.pos < self.src.len() {
             self.src[self.pos]
         } else {
@@ -61,20 +108,27 @@ impl<'a> Lexer<'a> {
 
     /// Peek at `pos + offset`.
     #[inline]
-    pub fn peek_at(&self, offset: usize) -> u8 {
+    #[must_use]
+    pub(crate) fn peek_at(&self, offset: usize) -> u8 {
         let i = self.pos + offset;
         if i < self.src.len() { self.src[i] } else { 0 }
     }
 
     /// Slice of the original input from `start` to current position.
     #[inline]
-    pub fn slice(&self, start: usize) -> &'a str {
+    #[must_use]
+    pub(crate) fn slice(&self, start: usize) -> &'a str {
         &self.input[start..self.pos]
     }
 
     /// Slice of the original input from `start` to `end`.
+    ///
+    /// # Panics
+    ///
+    /// Panics in debug mode if `start > end` or `end > input length`.
     #[inline]
-    pub fn slice_range(&self, start: usize, end: usize) -> &'a str {
+    #[must_use]
+    pub(crate) fn slice_range(&self, start: usize, end: usize) -> &'a str {
         debug_assert!(
             start <= end && end <= self.src.len(),
             "slice_range({start}, {end}): len={}",
@@ -85,7 +139,8 @@ impl<'a> Lexer<'a> {
 
     /// Remaining input from current position to end.
     #[inline]
-    pub fn remaining(&self) -> &'a str {
+    #[must_use]
+    pub(crate) fn remaining(&self) -> &'a str {
         &self.input[self.pos..]
     }
 
@@ -95,23 +150,25 @@ impl<'a> Lexer<'a> {
 
     /// Set position directly — used for backtracking.
     #[inline]
-    pub fn set_pos(&mut self, pos: usize) {
+    pub(crate) fn set_pos(&mut self, pos: usize) {
         self.pos = pos;
     }
 
+    /// Advance the cursor by one byte.
     #[inline]
-    pub fn bump(&mut self) {
+    pub(crate) fn bump(&mut self) {
         self.pos += 1;
     }
 
+    /// Advance the cursor by `n` bytes.
     #[inline]
-    pub fn bump_n(&mut self, n: usize) {
+    pub(crate) fn bump_n(&mut self, n: usize) {
         self.pos += n;
     }
 
     /// Advance if current byte matches. Returns true if consumed.
     #[inline]
-    pub fn eat(&mut self, b: u8) -> bool {
+    pub(crate) fn eat(&mut self, b: u8) -> bool {
         if self.peek() == b {
             self.pos += 1;
             true
@@ -121,7 +178,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Advance if the upcoming bytes match a string. Returns true if consumed.
-    pub fn eat_str(&mut self, s: &[u8]) -> bool {
+    pub(crate) fn eat_str(&mut self, s: &[u8]) -> bool {
         if self.pos + s.len() <= self.src.len() && &self.src[self.pos..self.pos + s.len()] == s {
             self.pos += s.len();
             true
@@ -135,7 +192,7 @@ impl<'a> Lexer<'a> {
     // -----------------------------------------------------------------------
 
     /// Skip spaces and tabs (not newlines).
-    pub fn skip_blanks(&mut self) {
+    pub(crate) fn skip_blanks(&mut self) {
         while self.pos < self.src.len() {
             match self.src[self.pos] {
                 b' ' | b'\t' => self.pos += 1,
@@ -145,7 +202,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Skip a `#` comment through end of line.
-    pub fn skip_comment(&mut self) {
+    pub(crate) fn skip_comment(&mut self) {
         if self.peek() == b'#' {
             while self.pos < self.src.len() && self.src[self.pos] != b'\n' {
                 self.pos += 1;
@@ -159,7 +216,8 @@ impl<'a> Lexer<'a> {
 
     /// Read a shell variable name: `[a-zA-Z_][a-zA-Z_0-9]*`.
     /// Returns empty string if no valid name at current position.
-    pub fn read_name(&mut self) -> &'a str {
+    #[must_use]
+    pub(crate) fn read_name(&mut self) -> &'a str {
         let start = self.pos;
         if self.pos < self.src.len()
             && (self.src[self.pos].is_ascii_alphabetic() || self.src[self.pos] == b'_')
@@ -175,7 +233,8 @@ impl<'a> Lexer<'a> {
     }
 
     /// Read a digit sequence: `[0-9]+`. Returns empty string if no digits.
-    pub fn read_number(&mut self) -> &'a str {
+    #[must_use]
+    pub(crate) fn read_number(&mut self) -> &'a str {
         let start = self.pos;
         while self.pos < self.src.len() && self.src[self.pos].is_ascii_digit() {
             self.pos += 1;
@@ -189,7 +248,7 @@ impl<'a> Lexer<'a> {
 
     /// Read content inside single quotes. Cursor starts after `'`.
     /// No escaping — ends at next `'`. Returns content, cursor after closing `'`.
-    pub fn scan_squote(&mut self) -> Result<&'a str, ParseError> {
+    pub(crate) fn scan_squote(&mut self) -> Result<&'a str, ParseError> {
         let start = self.pos;
         while self.pos < self.src.len() {
             if self.src[self.pos] == b'\'' {
@@ -207,7 +266,8 @@ impl<'a> Lexer<'a> {
     // -----------------------------------------------------------------------
 
     /// Check if the next word matches `kw` and is followed by a word boundary.
-    pub fn at_keyword(&self, kw: &[u8]) -> bool {
+    #[must_use]
+    pub(crate) fn at_keyword(&self, kw: &[u8]) -> bool {
         let end = self.pos + kw.len();
         if end > self.src.len() {
             return false;
@@ -224,7 +284,8 @@ impl<'a> Lexer<'a> {
     }
 
     /// Check if any of the given keywords match at the current position.
-    pub fn at_any_keyword(&self, keywords: &[&[u8]]) -> bool {
+    #[must_use]
+    pub(crate) fn at_any_keyword(&self, keywords: &[&[u8]]) -> bool {
         keywords.iter().any(|kw| self.at_keyword(kw))
     }
 
@@ -232,14 +293,16 @@ impl<'a> Lexer<'a> {
     // Helpers
     // -----------------------------------------------------------------------
 
-    pub fn err(&self, msg: &'static str) -> ParseError {
-        ParseError { pos: self.pos, msg }
+    /// Create a [`ParseError`] at the current position.
+    pub(crate) fn err(&self, msg: &'static str) -> ParseError {
+        ParseError::new(self.pos, msg)
     }
 }
 
 /// Shell metacharacters — terminate words and act as delimiters.
 #[inline]
-pub const fn is_meta(b: u8) -> bool {
+#[must_use]
+pub(crate) const fn is_meta(b: u8) -> bool {
     matches!(
         b,
         b' ' | b'\t' | b'\n' | b';' | b'&' | b'|' | b'(' | b')' | b'<' | b'>' | b'\0'
@@ -345,5 +408,12 @@ mod tests {
         let mut lex = Lexer::new("# this is a comment\nnext");
         lex.skip_comment();
         assert_eq!(lex.peek(), b'\n');
+    }
+
+    #[test]
+    fn parse_error_accessors() {
+        let err = ParseError::new(42, "test error");
+        assert_eq!(err.position(), 42);
+        assert_eq!(err.message(), "test error");
     }
 }

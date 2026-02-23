@@ -1,6 +1,22 @@
+//! Fast bash detection heuristic.
+//!
+//! Runs on every Enter keypress — zero allocation, no regex, no parsing.
+//! Scans raw bytes for bash-specific patterns and triggers.
+
 /// Quick check: does this string contain bash-specific syntax?
 /// This must be FAST — it runs on every Enter keypress.
 /// No regex, no parsing — just byte-level pattern scanning.
+///
+/// # Examples
+///
+/// ```
+/// use reef::detect::looks_like_bash;
+///
+/// assert!(looks_like_bash("if [[ $x == 1 ]]; then echo yes; fi"));
+/// assert!(looks_like_bash("export FOO=bar"));
+/// assert!(!looks_like_bash("echo hello"));
+/// ```
+#[must_use]
 pub fn looks_like_bash(input: &str) -> bool {
     let bytes = input.as_bytes();
     let len = bytes.len();
@@ -227,6 +243,10 @@ fn has_bash_fd_redirect(bytes: &[u8]) -> bool {
             }
             b'0'..=b'9' => {
                 let start = i;
+                // Consume all contiguous digits. The `continue` at the end of
+                // this arm skips the `i += 1` at the bottom of the outer loop,
+                // which is correct because we already advanced `i` past the
+                // digit run (and possibly past the redirect operator).
                 while i < len && bytes[i].is_ascii_digit() { i += 1; }
                 if i < len && matches!(bytes[i], b'>' | b'<') {
                     // Only flag if at a word boundary (not mid-token like "echo 300>f")

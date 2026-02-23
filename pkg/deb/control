@@ -1,0 +1,30 @@
+Source: reef
+Section: shells
+Priority: optional
+Maintainer: Xavier B <zstud.dev@proton.me>
+Build-Depends: debhelper-compat (= 13), cargo (>= 1.85), rustc (>= 1.85)
+Standards-Version: 4.7.0
+Homepage: https://github.com/ZStud/reef
+Vcs-Git: https://github.com/ZStud/reef.git
+Vcs-Browser: https://github.com/ZStud/reef
+
+Package: reef
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, fish (>= 3.0), bash
+Description: Bash compatibility layer for fish shell
+ Reef makes bash syntax work seamlessly inside fish shell. No prefix commands,
+ no mode switching, no learning curve. You type bash — fish runs it.
+ .
+ Includes detection, AST translation, and bash passthrough with environment
+ diffing. 498 tests, zero dependencies, ~490KB binary.
+
+Package: reef-tools
+Architecture: all
+Depends: ${misc:Depends}, fish (>= 3.0)
+Recommends: ripgrep, fd-find, sd, dust, procs, eza, bat, zoxide
+Description: Modern CLI tool wrappers for fish — grep→rg, find→fd, cat→bat
+ Drop-in replacements that swap legacy coreutils for faster, modern
+ alternatives. Each wrapper fully mimics the original tool's flag interface,
+ translating GNU flags to their modern equivalents.
+ .
+ Wrappers for tools you haven't installed simply pass through to the original.

@@ -1,3 +1,8 @@
+//! Recursive-descent parser for bash syntax.
+//!
+//! Produces an AST of [`Cmd`] nodes that borrow from the input string.
+//! Uses Pratt parsing for arithmetic expressions.
+
 use std::borrow::Cow;
 
 use crate::ast::*;
@@ -11,6 +16,16 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     /// Create a parser for the given bash input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::parser::Parser;
+    /// let parser = Parser::new("echo hello && echo world");
+    /// let cmds = parser.parse().unwrap();
+    /// assert_eq!(cmds.len(), 1); // one and-or list
+    /// ```
+    #[must_use]
     pub fn new(input: &'a str) -> Self {
         Parser {
             lex: Lexer::new(input),
@@ -19,13 +34,38 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse the input into a list of commands.
+    ///
+    /// Returns a `Vec<Cmd>` representing the top-level command list. Each
+    /// command borrows from the input string — no copying occurs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ParseError`] when the input contains invalid or unsupported
+    /// bash syntax — for example, unmatched delimiters, unexpected tokens,
+    /// or unterminated strings.
+    ///
+    /// # Panics
+    ///
+    /// Panics (via internal `.expect()`) if the parser's own invariants are
+    /// violated — for example, consuming a single-element `Vec` that was
+    /// just checked to have exactly one item. These are logic errors, not
+    /// input-dependent, so well-formed callers will never trigger them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::parser::Parser;
+    /// let cmds = Parser::new("echo hello").parse().unwrap();
+    /// assert_eq!(cmds.len(), 1);
+    /// ```
+    #[must_use = "parsing produces a result that should be inspected"]
     pub fn parse(mut self) -> Result<Vec<Cmd<'a>>, ParseError> {
         self.cmd_list(&[])
     }
 
     /// Parse a heredoc body with variable/command expansion (unquoted delimiter).
     /// Similar to double-quoted parsing but stops at EOF.
-    pub fn parse_heredoc_body(mut self) -> Result<Vec<Atom<'a>>, ParseError> {
+    pub(crate) fn parse_heredoc_body(mut self) -> Result<Vec<Atom<'a>>, ParseError> {
         let mut atoms = Vec::new();
         let mut lit_start = self.lex.pos();
 
@@ -171,7 +211,10 @@ impl<'a> Parser<'a> {
                 // Add 2>&1 redirect to previous command
                 let redir_2to1 =
                     Redir::DupWrite(Some(2), Word::Simple(WordPart::Bare(Atom::Lit("1"))));
-                Self::add_redirect_to_exec(cmds.last_mut().unwrap(), redir_2to1);
+                Self::add_redirect_to_exec(
+                    cmds.last_mut().expect("pipe has at least one command"),
+                    redir_2to1,
+                );
             }
             self.skip_separators();
             cmds.push(self.executable()?);
@@ -508,6 +551,26 @@ impl<'a> Parser<'a> {
 
     /// Parse `[[ ... ]]` — split internal `&&`/`||` into an and-or list.
     fn double_bracket(&mut self) -> Result<CompoundKind<'a>, ParseError> {
+        fn build_test_cmd(words: Vec<Word<'_>>) -> Cmd<'_> {
+            let mut suffix = Vec::new();
+            suffix.push(CmdSuffix::Word(Word::Simple(WordPart::Bare(Atom::Lit(
+                "[[",
+            )))));
+            for w in words {
+                suffix.push(CmdSuffix::Word(w));
+            }
+            suffix.push(CmdSuffix::Word(Word::Simple(WordPart::Bare(Atom::Lit(
+                "]]",
+            )))));
+            Cmd::List(AndOrList {
+                first: Pipeline::Single(Executable::Simple(SimpleCmd {
+                    prefix: Vec::new(),
+                    suffix,
+                })),
+                rest: Vec::new(),
+            })
+        }
+
         self.lex.eat_str(b"[[");
         self.lex.skip_blanks();
 
@@ -543,38 +606,14 @@ impl<'a> Parser<'a> {
             current_words.push(self.word_bracket()?);
         }
 
-        // Build command list from segments:
-        // [[ a ]] && [[ b ]] || [[ c ]]
-        // Each segment becomes a simple command with [[ as the command name
-        // and ]] appended, connected by and-or.
-        fn build_test_cmd(words: Vec<Word<'_>>) -> Cmd<'_> {
-            let mut suffix = Vec::new();
-            suffix.push(CmdSuffix::Word(Word::Simple(WordPart::Bare(Atom::Lit(
-                "[[",
-            )))));
-            for w in words {
-                suffix.push(CmdSuffix::Word(w));
-            }
-            suffix.push(CmdSuffix::Word(Word::Simple(WordPart::Bare(Atom::Lit(
-                "]]",
-            )))));
-            Cmd::List(AndOrList {
-                first: Pipeline::Single(Executable::Simple(SimpleCmd {
-                    prefix: Vec::new(),
-                    suffix,
-                })),
-                rest: Vec::new(),
-            })
-        }
-
         if segments.len() == 1 {
-            let (words, _) = segments.into_iter().next().unwrap();
+            let (words, _) = segments.into_iter().next().expect("len checked == 1");
             return Ok(CompoundKind::DoubleBracket(vec![build_test_cmd(words)]));
         }
 
         // Multiple segments — build an and-or list
         let mut iter = segments.into_iter();
-        let (first_words, first_op) = iter.next().unwrap();
+        let (first_words, first_op) = iter.next().expect("segments is non-empty");
         let first_cmd = build_test_cmd(first_words);
 
         let first_pipeline = Pipeline::Single(Executable::Compound(CompoundCmd {
@@ -786,7 +825,7 @@ impl<'a> Parser<'a> {
             return Err(self.lex.err("expected word"));
         }
         if parts.len() == 1 {
-            Ok(Word::Simple(parts.into_iter().next().unwrap()))
+            Ok(Word::Simple(parts.into_iter().next().expect("len checked == 1")))
         } else {
             Ok(Word::Concat(parts))
         }
@@ -824,7 +863,7 @@ impl<'a> Parser<'a> {
             return Err(self.lex.err("expected word"));
         }
         if parts.len() == 1 {
-            Ok(Word::Simple(parts.into_iter().next().unwrap()))
+            Ok(Word::Simple(parts.into_iter().next().expect("len checked == 1")))
         } else {
             Ok(Word::Concat(parts))
         }
@@ -1395,7 +1434,7 @@ impl<'a> Parser<'a> {
             return Err(self.lex.err("empty array index"));
         }
         if parts.len() == 1 {
-            Ok(Word::Simple(parts.into_iter().next().unwrap()))
+            Ok(Word::Simple(parts.into_iter().next().expect("len checked == 1")))
         } else {
             Ok(Word::Concat(parts))
         }
@@ -1527,12 +1566,14 @@ impl<'a> Parser<'a> {
         }
         match parts.len() {
             0 => Ok(None),
-            1 => Ok(Some(Word::Simple(parts.into_iter().next().unwrap()))),
+            1 => Ok(Some(Word::Simple(parts.into_iter().next().expect("len checked == 1")))),
             _ => Ok(Some(Word::Concat(parts))),
         }
     }
 
     /// Scan substring offset/length — stops at unquoted `:` or `}`, tracking nesting.
+    /// Skips quoted strings so that `:` or `}` inside quotes are not treated as
+    /// delimiters.
     fn scan_substring_part(&mut self) {
         let mut depth: i32 = 0;
         while !self.lex.is_eof() {
@@ -1541,11 +1582,37 @@ impl<'a> Parser<'a> {
                 break;
             }
             match b {
-                b'(' | b'{' => depth += 1,
-                b')' | b'}' => depth -= 1,
-                _ => {}
+                b'\'' => {
+                    self.lex.bump();
+                    while !self.lex.is_eof() && self.lex.peek() != b'\'' {
+                        self.lex.bump();
+                    }
+                    if !self.lex.is_eof() {
+                        self.lex.bump(); // closing '
+                    }
+                }
+                b'"' => {
+                    self.lex.bump();
+                    while !self.lex.is_eof() && self.lex.peek() != b'"' {
+                        if self.lex.peek() == b'\\' {
+                            self.lex.bump(); // skip escape
+                        }
+                        self.lex.bump();
+                    }
+                    if !self.lex.is_eof() {
+                        self.lex.bump(); // closing "
+                    }
+                }
+                b'(' | b'{' => {
+                    depth += 1;
+                    self.lex.bump();
+                }
+                b')' | b'}' => {
+                    depth -= 1;
+                    self.lex.bump();
+                }
+                _ => self.lex.bump(),
             }
-            self.lex.bump();
         }
     }
 
@@ -1599,6 +1666,10 @@ impl<'a> Parser<'a> {
     /// Try to parse `{start..end[..step]}` brace range.
     /// Returns None if not a brace range (doesn't consume).
     fn try_brace_range(&mut self) -> Option<Atom<'a>> {
+        fn valid_range_val(s: &str) -> bool {
+            s.parse::<i64>().is_ok() || (s.len() == 1 && s.as_bytes()[0].is_ascii_alphabetic())
+        }
+
         let start_pos = self.lex.pos();
         if self.lex.peek() != b'{' {
             return None;
@@ -1633,9 +1704,6 @@ impl<'a> Parser<'a> {
         };
 
         // Validate: start and end must be integers or single alpha chars
-        fn valid_range_val(s: &str) -> bool {
-            s.parse::<i64>().is_ok() || (s.len() == 1 && s.as_bytes()[0].is_ascii_alphabetic())
-        }
         if !valid_range_val(first) || !valid_range_val(end_val) {
             return None;
         }
@@ -1653,7 +1721,7 @@ impl<'a> Parser<'a> {
         let first_end = inner_start + dot_pos;
         let end_start = inner_start + dot_pos + 2;
         let end_end = if step_val.is_some() {
-            end_start + rest.find("..").unwrap()
+            end_start + rest.find("..").expect("step_val implies second '..' exists")
         } else {
             inner_end
         };
@@ -1880,7 +1948,7 @@ impl<'a> Parser<'a> {
     // -----------------------------------------------------------------------
 
     /// Parse an arithmetic expression with minimum precedence `min_prec`.
-    pub fn arith(&mut self, min_prec: u8) -> Result<Arith<'a>, ParseError> {
+    pub(crate) fn arith(&mut self, min_prec: u8) -> Result<Arith<'a>, ParseError> {
         let mut left = self.arith_atom()?;
 
         loop {
@@ -2101,6 +2169,8 @@ impl<'a> Parser<'a> {
 
     /// Return the precedence, operator length, and constructor for a binary
     /// arithmetic infix operator at the current position.
+    // Return type encodes (precedence, operator length, constructor) in one tuple
+    // to avoid splitting into multiple functions that repeat the same match arms.
     #[allow(clippy::type_complexity)]
     fn arith_infix_op(
         &self,
@@ -2615,7 +2685,7 @@ mod tests {
     #[test]
     fn process_substitution_out_error() {
         let err = parse_err("tee >(grep foo)");
-        assert!(err.msg.contains("output process substitution"));
+        assert!(err.message().contains("output process substitution"));
     }
 
     #[test]
@@ -2645,13 +2715,13 @@ mod tests {
     #[test]
     fn case_fallthrough_error() {
         let err = parse_err("case $x in a) echo a;& b) echo b;; esac");
-        assert!(err.msg.contains("fallthrough"));
+        assert!(err.message().contains("fallthrough"));
     }
 
     #[test]
     fn case_continue_error() {
         let err = parse_err("case $x in a) echo a;;& b) echo b;; esac");
-        assert!(err.msg.contains(";;&"));
+        assert!(err.message().contains(";;&"));
     }
 
     #[test]
@@ -2669,6 +2739,6 @@ mod tests {
     #[test]
     fn select_error() {
         let err = parse_err("select opt in a b c; do echo $opt; done");
-        assert!(err.msg.contains("select"));
+        assert!(err.message().contains("select"));
     }
 }

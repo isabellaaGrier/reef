@@ -1,3 +1,8 @@
+//! Environment snapshot diffing for bash-to-fish variable sync.
+//!
+//! Captures environment state before and after a bash command, then generates
+//! fish shell commands (`set -gx`, `set -e`, `cd`) to apply the differences.
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -54,14 +59,21 @@ const SKIP_VARS: &[&str] = &[
 ];
 
 /// A snapshot of the shell environment at a point in time.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnvSnapshot {
-    pub vars: HashMap<String, String>,
-    pub cwd: String,
+    vars: HashMap<String, String>,
+    cwd: String,
 }
 
 impl EnvSnapshot {
+    /// Create a snapshot from the given variables and working directory.
+    #[must_use]
+    pub fn new(vars: HashMap<String, String>, cwd: String) -> Self {
+        EnvSnapshot { vars, cwd }
+    }
+
     /// Capture the current process environment, skipping bash-internal vars.
+    #[must_use]
     pub fn capture_current() -> Self {
         let vars: HashMap<String, String> = std::env::vars()
             .filter(|(k, _)| !should_skip_var(k))
@@ -72,15 +84,42 @@ impl EnvSnapshot {
         EnvSnapshot { vars, cwd }
     }
 
-    /// Diff two snapshots, returning fish commands to apply the changes.
+    /// The environment variables in this snapshot.
     ///
-    /// Returns commands like:
-    ///   set -gx VAR value
-    ///   set -e VAR
-    ///   cd /new/path
-    pub fn diff(&self, after: &EnvSnapshot) -> Vec<String> {
-        let mut commands = Vec::new();
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::env_diff::EnvSnapshot;
+    /// let snap = EnvSnapshot::capture_current();
+    /// assert!(snap.vars().contains_key("HOME"));
+    /// ```
+    #[must_use]
+    #[allow(dead_code)] // public API for downstream consumers
+    pub fn vars(&self) -> &HashMap<String, String> {
+        &self.vars
+    }
 
+    /// The working directory in this snapshot.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use reef::env_diff::EnvSnapshot;
+    /// let snap = EnvSnapshot::capture_current();
+    /// assert!(!snap.cwd().is_empty());
+    /// ```
+    #[must_use]
+    #[allow(dead_code)] // public API for downstream consumers
+    pub fn cwd(&self) -> &str {
+        &self.cwd
+    }
+
+    /// Diff two snapshots, writing fish commands into a single buffer.
+    ///
+    /// Appends newline-separated commands like `set -gx VAR value`,
+    /// `set -e VAR`, or `cd /new/path` to `out`. Uses a single allocation
+    /// instead of one `String` per command.
+    pub fn diff_into(&self, after: &EnvSnapshot, out: &mut String) {
         // New or changed variables
         for (key, new_val) in &after.vars {
             if should_skip_var(key) {
@@ -93,22 +132,21 @@ impl EnvSnapshot {
             };
 
             if changed {
-                let mut cmd = String::with_capacity(key.len() + new_val.len() + 12);
-                cmd.push_str("set -gx ");
-                cmd.push_str(key);
-                cmd.push(' ');
+                out.push_str("set -gx ");
+                out.push_str(key);
+                out.push(' ');
                 // PATH-like variables: split on : for fish list semantics
                 if key.ends_with("PATH") && new_val.contains(':') {
                     for (i, part) in new_val.split(':').enumerate() {
                         if i > 0 {
-                            cmd.push(' ');
+                            out.push(' ');
                         }
-                        cmd.push_str(part);
+                        out.push_str(part);
                     }
                 } else {
-                    cmd.push_str(&shell_escape(new_val));
+                    out.push_str(&shell_escape(new_val));
                 }
-                commands.push(cmd);
+                out.push('\n');
             }
         }
 
@@ -118,27 +156,35 @@ impl EnvSnapshot {
                 continue;
             }
             if !after.vars.contains_key(key) {
-                let mut cmd = String::with_capacity(key.len() + 8);
-                cmd.push_str("set -e ");
-                cmd.push_str(key);
-                commands.push(cmd);
+                out.push_str("set -e ");
+                out.push_str(key);
+                out.push('\n');
             }
         }
 
         // Changed directory
         if !after.cwd.is_empty() && self.cwd != after.cwd {
-            let escaped = shell_escape(&after.cwd);
-            let mut cmd = String::with_capacity(escaped.len() + 3);
-            cmd.push_str("cd ");
-            cmd.push_str(&escaped);
-            commands.push(cmd);
+            out.push_str("cd ");
+            out.push_str(&shell_escape(&after.cwd));
+            out.push('\n');
         }
+    }
 
-        commands
+    /// Diff two snapshots, returning fish commands as a newline-separated string.
+    ///
+    /// Convenience wrapper around [`diff_into`](Self::diff_into) that allocates
+    /// and returns a new `String`.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn diff(&self, after: &EnvSnapshot) -> String {
+        let mut out = String::new();
+        self.diff_into(after, &mut out);
+        out
     }
 }
 
 /// Parse null-separated environment output (from `env -0`).
+#[must_use]
 pub fn parse_null_separated_env(data: &str) -> HashMap<String, String> {
     let mut vars = HashMap::new();
 
@@ -162,7 +208,8 @@ pub fn parse_null_separated_env(data: &str) -> HashMap<String, String> {
 }
 
 /// Check if a variable should be skipped during env sync.
-fn should_skip_var(name: &str) -> bool {
+#[must_use]
+pub(crate) fn should_skip_var(name: &str) -> bool {
     SKIP_VARS.binary_search(&name).is_ok()
 }
 
@@ -217,88 +264,58 @@ mod tests {
 
     #[test]
     fn diff_new_var() {
-        let before = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/home".to_string(),
-        };
+        let before = EnvSnapshot::new(HashMap::new(), "/home".to_string());
         let mut after_vars = HashMap::new();
         after_vars.insert("NEW_VAR".to_string(), "hello".to_string());
-        let after = EnvSnapshot {
-            vars: after_vars,
-            cwd: "/home".to_string(),
-        };
+        let after = EnvSnapshot::new(after_vars, "/home".to_string());
 
-        let cmds = before.diff(&after);
-        assert!(cmds.iter().any(|c| c.contains("set -gx NEW_VAR")));
+        let out = before.diff(&after);
+        assert!(out.contains("set -gx NEW_VAR"));
     }
 
     #[test]
     fn diff_removed_var() {
         let mut before_vars = HashMap::new();
         before_vars.insert("OLD_VAR".to_string(), "gone".to_string());
-        let before = EnvSnapshot {
-            vars: before_vars,
-            cwd: "/home".to_string(),
-        };
-        let after = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/home".to_string(),
-        };
+        let before = EnvSnapshot::new(before_vars, "/home".to_string());
+        let after = EnvSnapshot::new(HashMap::new(), "/home".to_string());
 
-        let cmds = before.diff(&after);
-        assert!(cmds.iter().any(|c| c == "set -e OLD_VAR"));
+        let out = before.diff(&after);
+        assert!(out.lines().any(|l| l == "set -e OLD_VAR"));
     }
 
     #[test]
     fn diff_changed_cwd() {
-        let before = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/home".to_string(),
-        };
-        let after = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/tmp".to_string(),
-        };
+        let before = EnvSnapshot::new(HashMap::new(), "/home".to_string());
+        let after = EnvSnapshot::new(HashMap::new(), "/tmp".to_string());
 
-        let cmds = before.diff(&after);
-        assert!(cmds.iter().any(|c| c.contains("cd /tmp")));
+        let out = before.diff(&after);
+        assert!(out.contains("cd /tmp"));
     }
 
     #[test]
     fn diff_path_split() {
-        let before = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/home".to_string(),
-        };
+        let before = EnvSnapshot::new(HashMap::new(), "/home".to_string());
         let mut after_vars = HashMap::new();
         after_vars.insert("PATH".to_string(), "/usr/bin:/usr/local/bin".to_string());
-        let after = EnvSnapshot {
-            vars: after_vars,
-            cwd: "/home".to_string(),
-        };
+        let after = EnvSnapshot::new(after_vars, "/home".to_string());
 
-        let cmds = before.diff(&after);
-        let path_cmd = cmds.iter().find(|c| c.contains("PATH")).unwrap();
-        assert!(path_cmd.contains("/usr/bin /usr/local/bin"));
+        let out = before.diff(&after);
+        let path_line = out.lines().find(|l| l.contains("PATH")).unwrap();
+        assert!(path_line.contains("/usr/bin /usr/local/bin"));
     }
 
     #[test]
     fn skip_bash_internal_vars() {
-        let before = EnvSnapshot {
-            vars: HashMap::new(),
-            cwd: "/home".to_string(),
-        };
+        let before = EnvSnapshot::new(HashMap::new(), "/home".to_string());
         let mut after_vars = HashMap::new();
         after_vars.insert("BASH_VERSION".to_string(), "5.2.0".to_string());
         after_vars.insert("REAL_VAR".to_string(), "keep".to_string());
-        let after = EnvSnapshot {
-            vars: after_vars,
-            cwd: "/home".to_string(),
-        };
+        let after = EnvSnapshot::new(after_vars, "/home".to_string());
 
-        let cmds = before.diff(&after);
-        assert!(!cmds.iter().any(|c| c.contains("BASH_VERSION")));
-        assert!(cmds.iter().any(|c| c.contains("REAL_VAR")));
+        let out = before.diff(&after);
+        assert!(!out.contains("BASH_VERSION"));
+        assert!(out.contains("REAL_VAR"));
     }
 
     #[test]
@@ -320,8 +337,8 @@ mod tests {
     #[test]
     fn capture_current_env() {
         let snap = EnvSnapshot::capture_current();
-        assert!(!snap.vars.is_empty());
-        assert!(!snap.cwd.is_empty());
-        assert!(snap.vars.contains_key("HOME"));
+        assert!(!snap.vars().is_empty());
+        assert!(!snap.cwd().is_empty());
+        assert!(snap.vars().contains_key("HOME"));
     }
 }

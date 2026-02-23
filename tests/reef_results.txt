@@ -1,7 +1,7 @@
 reef Test Suite Results
 =======================
-Date: Wed Feb 11 05:01:49 PM MST 2026
-reef: unknown
+Date: Thu Feb 12 08:24:04 PM MST 2026
+reef: reef 0.2.0
 fish: fish, version 4.4.0
 bash: GNU bash, version 5.3.9(1)-release (x86_64-pc-linux-gnu)
 
@@ -23,13 +23,13 @@ PASS #1.7 [declare -x] → T1:translate
 
 PASS #1.8 [local in function] → T1:translate
 
-T2   #1.9 [inline var before command] → bash-exec (detect:yes)
+T2   #1.9 [inline var before command] → bash-exec (detect:no)
 
 PASS #1.10 [assignment with cmd subst] → T1:translate
 
 PASS #1.11 [assignment with backticks] → T1:translate
 
-T2   #1.12 [multi inline assignments] → bash-exec (detect:yes)
+T2   #1.12 [multi inline assignments] → bash-exec (detect:no)
 
 
 ── Command Substitution

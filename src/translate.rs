@@ -1,3 +1,8 @@
+//! Bash-to-fish translator.
+//!
+//! Walks the AST produced by [`crate::parser::Parser`] and emits equivalent
+//! fish shell code. Unsupported constructs produce [`TranslateError::Unsupported`].
+
 use std::borrow::Cow;
 use std::fmt;
 
@@ -24,6 +29,7 @@ impl Ctx {
 
 /// Error produced during bash-to-fish translation.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum TranslateError {
     /// The input uses a bash feature that has no fish equivalent.
     Unsupported(&'static str),
@@ -62,7 +68,31 @@ type Res<T> = Result<T, TranslateError>;
 // Public entry point
 // ---------------------------------------------------------------------------
 
-/// Translate a bash command string to fish shell syntax.
+/// Translate a bash command string to equivalent fish shell syntax.
+///
+/// Parses the input as bash, walks the AST, and emits fish code. The result
+/// may contain multiple lines (separated by `\n`) when the input has multiple
+/// commands. Returns [`TranslateError::Unsupported`] for bash features that
+/// have no fish equivalent, or [`TranslateError::Parse`] for invalid syntax.
+///
+/// # Errors
+///
+/// Returns [`TranslateError::Parse`] if the input is not valid bash syntax,
+/// or [`TranslateError::Unsupported`] if it uses a bash feature with no fish
+/// equivalent (e.g., `select`, coprocesses, associative arrays).
+///
+/// # Examples
+///
+/// ```
+/// use reef::translate::translate_bash_to_fish;
+///
+/// let fish = translate_bash_to_fish("export FOO=bar").unwrap();
+/// assert_eq!(fish, "set -gx FOO bar");
+///
+/// // Unsupported features return an error
+/// assert!(translate_bash_to_fish("select x in a b; do echo $x; done").is_err());
+/// ```
+#[must_use = "translation produces a result that should be inspected"]
 pub fn translate_bash_to_fish(input: &str) -> Result<String, TranslateError> {
     let cmds = Parser::new(input).parse()?;
     let mut ctx = Ctx::new();
@@ -1537,14 +1567,11 @@ fn emit_atom(ctx: &mut Ctx, atom: &Atom<'_>, out: &mut String) -> Res<()> {
     }
 }
 
-/// Check if a Concat word contains a BraceRange alongside dynamic parts
+/// Check if a `Concat` word contains a `BraceRange` alongside dynamic parts
 /// (command substitution, parameter expansion, etc.). Bash distributes the
 /// suffix across each brace-expanded element; fish doesn't.
 fn word_has_brace_range_concat(word: &Word<'_>) -> bool {
-    let parts = match word {
-        Word::Concat(parts) => parts,
-        _ => return false,
-    };
+    let Word::Concat(parts) = word else { return false };
     let has_brace_range = parts.iter().any(|p| {
         matches!(p, WordPart::Bare(Atom::BraceRange { .. }))
     });
@@ -1561,57 +1588,62 @@ fn word_has_brace_range_concat(word: &Word<'_>) -> bool {
 }
 
 /// Detect adjacent brace comma expansions like `{a,b}{1,2}` which fish expands
-/// in a different order than bash. Checks the word structure for adjacent
-/// `Lit("{")...Lit("...,...")...` groups.
+/// in a different order than bash. Walks AST literal slices directly — zero
+/// allocation.
 fn word_has_nested_braces(word: &Word<'_>) -> bool {
-    // Flatten to a string and check for }{  with commas in both groups
-    let mut flat = String::with_capacity(64);
-    match word {
-        Word::Simple(p) => {
-            flat_part(p, &mut flat);
-        }
-        Word::Concat(parts) => {
-            for p in parts {
-                flat_part(p, &mut flat);
-            }
+    let mut state = BraceState::default();
+    let parts: &[WordPart<'_>] = match word {
+        Word::Simple(p) => std::slice::from_ref(p),
+        Word::Concat(parts) => parts,
+    };
+    for p in parts {
+        if scan_part_braces(p, &mut state) {
+            return true;
         }
     }
-    has_nested_brace_expansion(&flat)
+    state.count >= 2
 }
 
-fn flat_part(part: &WordPart<'_>, out: &mut String) {
-    match part {
-        WordPart::Bare(Atom::Lit(s)) | WordPart::SQuoted(s) => out.push_str(s),
-        WordPart::Bare(_) | WordPart::DQuoted(_) => {} // skip non-literal atoms and variables
-    }
+#[derive(Default)]
+struct BraceState {
+    /// Number of consecutive `{...,..}` groups seen.
+    count: u32,
+    /// True while scanning inside a `{` and before seeing `}`.
+    in_brace: bool,
+    /// True if we've seen a `,` inside the current brace group.
+    has_comma: bool,
 }
 
-fn has_nested_brace_expansion(s: &str) -> bool {
-    let bytes = s.as_bytes();
-    let mut brace_count = 0u32;
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' {
-            let mut has_comma = false;
-            i += 1;
-            while i < bytes.len() && bytes[i] != b'}' {
-                if bytes[i] == b',' {
-                    has_comma = true;
+/// Feed one word-part's literal bytes into the brace state machine.
+/// Returns `true` early if two adjacent brace groups are detected.
+fn scan_part_braces(part: &WordPart<'_>, st: &mut BraceState) -> bool {
+    let slice: &str = match part {
+        WordPart::Bare(Atom::Lit(s)) | WordPart::SQuoted(s) => s,
+        _ => return false, // non-literal parts break adjacency
+    };
+    for &b in slice.as_bytes() {
+        if st.in_brace {
+            match b {
+                b',' => st.has_comma = true,
+                b'}' => {
+                    st.in_brace = false;
+                    if st.has_comma {
+                        st.count += 1;
+                        if st.count >= 2 {
+                            return true;
+                        }
+                    } else {
+                        st.count = 0;
+                    }
                 }
-                i += 1;
+                _ => {}
             }
-            if i < bytes.len() && has_comma {
-                brace_count += 1;
-                if brace_count >= 2 {
-                    return true;
-                }
-            } else {
-                brace_count = 0;
-            }
+        } else if b == b'{' {
+            st.in_brace = true;
+            st.has_comma = false;
         } else {
-            brace_count = 0;
+            st.count = 0;
         }
-        i += 1;
     }
     false
 }
@@ -2174,6 +2206,9 @@ fn emit_string_op(ctx: &mut Ctx,
 }
 
 /// Emit `${var/pat/rep}` family using fish `string replace`.
+// Each parameter corresponds to a distinct semantic role (mode flags,
+// param, pattern, replacement, output, context, quoting) — collapsing
+// them would obscure the intent more than the long signature does.
 #[allow(clippy::too_many_arguments)]
 fn emit_string_replace(ctx: &mut Ctx,
     param: &Param<'_>,
@@ -2873,10 +2908,30 @@ fn atom_to_string(atom: &Atom<'_>, out: &mut String) -> bool {
     }
 }
 
+/// Append an integer to a string without going through `fmt::Display`.
+///
+/// Uses a small stack buffer and manual digit extraction — avoids the
+/// formatting machinery overhead for a hot path.
 #[inline]
-fn itoa(out: &mut String, n: impl std::fmt::Display) {
-    use std::fmt::Write;
-    let _ = write!(out, "{n}");
+fn itoa(out: &mut String, n: i64) {
+    let mut buf = [0u8; 20]; // i64::MIN has 20 chars
+    let mut pos = buf.len();
+    let negative = n < 0;
+    let mut val = n.unsigned_abs();
+    loop {
+        pos -= 1;
+        buf[pos] = b'0' + (val % 10) as u8;
+        val /= 10;
+        if val == 0 {
+            break;
+        }
+    }
+    if negative {
+        pos -= 1;
+        buf[pos] = b'-';
+    }
+    // SAFETY: buf[pos..] contains only ASCII digits and optionally '-'
+    out.push_str(std::str::from_utf8(&buf[pos..]).expect("ASCII digits"));
 }
 
 /// Push `s` into `out` wrapped in single quotes, escaping internal `'` chars.
@@ -3314,7 +3369,7 @@ mod tests {
     fn arithmetic_modulo() {
         let result = t("echo $((x % 2))");
         assert!(result.contains("math"));
-        assert!(result.contains("%"));
+        assert!(result.contains('%'));
     }
 
     #[test]
@@ -3621,7 +3676,7 @@ mod tests {
     #[test]
     fn tilde_expansion() {
         let result = t("cd ~/projects");
-        assert!(result.contains("~"));
+        assert!(result.contains('~'));
         assert!(result.contains("projects"));
     }
 
@@ -4514,7 +4569,7 @@ mod tests {
     fn negation_double_bracket_glob() {
         let result = t(r#"[[ ! "hello" == w* ]]"#);
         assert!(result.contains("not "), "should negate: got: {}", result);
-        assert!(!result.contains(r#"\!"#), "should not escape !: got: {}", result);
+        assert!(!result.contains(r"\!"), "should not escape !: got: {}", result);
     }
 
     #[test]
@@ -5115,7 +5170,7 @@ mod tests {
     fn dot_source_profile() {
         // . (dot source) passes through
         let result = t(". ~/.profile");
-        assert!(result.contains("."), "got: {}", result);
+        assert!(result.contains('.'), "got: {}", result);
     }
 
     // --- Nested substitution ---
@@ -5316,7 +5371,7 @@ mod tests {
     #[test]
     fn test_string_equality() {
         let result = t(r#"[ "$a" = "hello" ]"#);
-        assert!(result.contains("test") || result.contains("["), "got: {}", result);
+        assert!(result.contains("test") || result.contains('['), "got: {}", result);
     }
 
     #[test]
@@ -5561,13 +5616,13 @@ mod tests {
     #[test]
     fn background_with_redirect() {
         let result = t("long_running_task > /dev/null 2>&1 &");
-        assert!(result.contains("&"), "got: {}", result);
+        assert!(result.contains('&'), "got: {}", result);
     }
 
     #[test]
     fn sequential_background() {
         let result = t("cmd1 & cmd2 &");
-        assert!(result.contains("&"), "got: {}", result);
+        assert!(result.contains('&'), "got: {}", result);
     }
 
     // --- Unset edge cases ---
@@ -5598,7 +5653,7 @@ mod tests {
     #[test]
     fn colon_noop() {
         let result = t(":");
-        assert!(result.contains(":") || result.contains("true") || result.is_empty(), "got: {}", result);
+        assert!(result.contains(':') || result.contains("true") || result.is_empty(), "got: {}", result);
     }
 
     #[test]
@@ -5622,7 +5677,7 @@ mod tests {
     #[test]
     fn test_with_not() {
         let result = t("[ ! -f /tmp/lock ]");
-        assert!(result.contains("!") || result.contains("not"), "got: {}", result);
+        assert!(result.contains('!') || result.contains("not"), "got: {}", result);
     }
 
     #[test]
