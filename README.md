@@ -51,17 +51,21 @@ brew tap ZStud/reef
 brew install reef
 ```
 
+homebrew-core submission is pending — `brew install reef` without tapping will work once merged.
+
 ### Debian / Ubuntu (PPA)
 ```
 sudo add-apt-repository ppa:zstud/reef
 sudo apt update
-sudo apt install reef
+sudo apt install reef               # bash compatibility layer
+sudo apt install reef-tools          # optional: modern tool wrappers
 ```
 
 ### Fedora / RHEL (Copr)
 ```
 sudo dnf copr enable zstud/reef
-sudo dnf install reef
+sudo dnf install reef                # bash compatibility layer
+sudo dnf install reef-tools          # optional: modern tool wrappers
 ```
 
 ### Nix
@@ -75,7 +79,10 @@ Or as a flake input:
 { inputs.reef.url = "github:ZStud/reef"; }
 ```
 
-nixpkgs submission is pending — `nix-env -iA nixpkgs.reef` will work once merged.
+Also available via nixpkgs (v0.3.0 update pending):
+```
+nix-env -iA nixpkgs.reef
+```
 
 ### Cargo (crates.io)
 ```
@@ -97,14 +104,39 @@ The install script places the binary and fish functions in the right locations. 
 
 **AUR:**
 ```
-yay -R reef              # removes everything
-yay -R reef-tools        # removes tool wrappers
+yay -R reef reef-tools
+```
+
+**Homebrew:**
+```
+brew uninstall reef && brew untap ZStud/reef
+```
+
+**Debian / Ubuntu:**
+```
+sudo apt remove reef reef-tools
+sudo add-apt-repository --remove ppa:zstud/reef
+```
+
+**Fedora / RHEL:**
+```
+sudo dnf remove reef reef-tools
+sudo dnf copr remove zstud/reef
+```
+
+**Nix:**
+```
+nix profile remove reef
+```
+
+**Cargo:**
+```
+cargo uninstall reef-shell
 ```
 
 **From source:**
 ```bash
 fish fish/install.fish --uninstall
-cargo uninstall reef-shell   # if installed via cargo install
 ```
 
 ---
