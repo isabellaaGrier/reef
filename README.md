@@ -51,7 +51,7 @@ brew tap ZStud/reef
 brew install reef
 ```
 
-homebrew-core submission is pending — `brew install reef` without tapping will work once merged.
+homebrew-core requires 225+ stars (or 90+ forks/watchers) for new formulae — once reef hits that, `brew install reef` will work without tapping.
 
 ### Debian / Ubuntu (PPA)
 ```
