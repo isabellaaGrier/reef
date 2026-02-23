@@ -66,13 +66,16 @@ sudo dnf install reef
 
 ### Nix
 ```
-nix-env -iA nixpkgs.reef
+nix profile install github:ZStud/reef
+nix profile install github:ZStud/reef#reef-tools   # optional tool wrappers
 ```
 
-Or in a flake:
+Or as a flake input:
 ```nix
 { inputs.reef.url = "github:ZStud/reef"; }
 ```
+
+nixpkgs submission is pending — `nix-env -iA nixpkgs.reef` will work once merged.
 
 ### Cargo (crates.io)
 ```
