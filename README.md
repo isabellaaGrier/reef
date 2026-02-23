@@ -47,6 +47,7 @@ Wrappers for tools you haven't installed simply pass through to the original com
 
 ### Homebrew (macOS / Linux)
 ```
+brew tap ZStud/reef
 brew install reef
 ```
 
