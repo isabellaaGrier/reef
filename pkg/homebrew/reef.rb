@@ -2,7 +2,7 @@ class Reef < Formula
   desc "Bash compatibility layer for fish shell"
   homepage "https://github.com/ZStud/reef"
   url "https://github.com/ZStud/reef/archive/v0.3.0.tar.gz"
-  sha256 "PLACEHOLDER"
+  sha256 "316607217c85ca173cf3e3ce8a8a64978421d1f813e922f243673d587530acdf"
   license "MIT"
 
   depends_on "rust" => :build
