@@ -1,5 +1,5 @@
 [package]
-name = "reef"
+name = "reef-shell"
 version = "0.3.0"
 edition = "2024"
 description = "Bash compatibility layer for fish shell"
@@ -16,6 +16,13 @@ exclude = [
     ".SRCINFO",
     "pkg/",
 ]
+
+[lib]
+name = "reef"
+
+[[bin]]
+name = "reef"
+path = "src/main.rs"
 
 [dependencies]
 

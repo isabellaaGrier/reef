@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "reef"
+name = "reef-shell"
 version = "0.3.0"

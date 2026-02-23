@@ -75,7 +75,7 @@ Or in a flake:
 
 ### Cargo (crates.io)
 ```
-cargo install reef
+cargo install reef-shell
 ```
 
 ### From source
@@ -100,7 +100,7 @@ yay -R reef-tools        # removes tool wrappers
 **From source:**
 ```bash
 fish fish/install.fish --uninstall
-cargo uninstall reef      # if installed via cargo install
+cargo uninstall reef-shell   # if installed via cargo install
 ```
 
 ---
@@ -267,7 +267,7 @@ if looks_like_bash("export FOO=bar") {
 
 ```toml
 [dependencies]
-reef = "0.3"
+reef-shell = "0.3"
 ```
 
 The library exposes the full public API: detection, parsing, AST types, translation, passthrough execution, env diffing, and daemon control. All types are `#[non_exhaustive]` for forward compatibility. Zero dependencies.
