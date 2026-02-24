@@ -53,14 +53,6 @@ brew install reef
 
 homebrew-core requires 225+ stars (or 90+ forks/watchers) for new formulae — once reef hits that, `brew install reef` will work without tapping.
 
-### Debian / Ubuntu (PPA)
-```
-sudo add-apt-repository ppa:zstud/reef
-sudo apt update
-sudo apt install reef               # bash compatibility layer
-sudo apt install reef-tools          # optional: modern tool wrappers
-```
-
 ### Fedora / RHEL (Copr)
 ```
 sudo dnf copr enable zstud/reef
@@ -100,6 +92,8 @@ fish fish/install.fish --tools      # also install tool wrappers
 
 The install script places the binary and fish functions in the right locations. No configuration needed.
 
+> **Why no Debian/Ubuntu package?** Reef uses Rust edition 2024, which requires Rust 1.85+. Ubuntu ships Rust 1.82 (as of Plucky 25.04), so a native PPA build isn't possible yet. Debian/Ubuntu users can install via Homebrew, Nix, `cargo install reef-shell`, or from source.
+
 ### Uninstall
 
 **AUR:**
@@ -112,11 +106,6 @@ yay -R reef reef-tools
 brew uninstall reef && brew untap ZStud/reef
 ```
 
-**Debian / Ubuntu:**
-```
-sudo apt remove reef reef-tools
-sudo add-apt-repository --remove ppa:zstud/reef
-```
 
 **Fedora / RHEL:**
 ```
